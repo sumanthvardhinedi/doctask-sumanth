@@ -1,0 +1,67 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.tox/
+.nox/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+.npm/
+.yarn/
+.pnpm-store/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs and local runtime
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Local uploads / private documents
+uploads/
+data/private/
+samples/private/
+
+# Databases / local volumes
+*.sqlite
+*.db
+docker-data/
+pgdata/
+
+# OS
+Desktop.ini
