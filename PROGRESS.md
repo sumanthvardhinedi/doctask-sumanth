@@ -2,7 +2,7 @@
 
 ## Status
 
-**Current phase:** Phase 1D — regulatory domain models  
+**Current phase:** Phase 1E — deterministic regulatory validator  
 **Date:** 2026-08-10
 
 ---
@@ -18,13 +18,14 @@
 - Phase 1B: FastAPI foundation implemented (`backend/requirements.txt`, health endpoint, pytest)
 - Phase 1C: PostgreSQL + pgvector Docker, SQLAlchemy engine/session, database integration test
 - Phase 1D: Regulatory domain models (filing package, documents, validation run, findings, approvals)
+- Phase 1E: Deterministic regulatory validator (rule evaluation, structured findings, persistence mapping)
 
 ---
 
 ## Current work
 
-- Phase 1D regulatory domain models complete (not yet committed)
-- Waiting for permission before next phase
+- Phase 1E deterministic validator complete
+- Waiting for permission before Phase 1F
 
 ---
 
@@ -54,6 +55,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 8. An unrelated folder `C:\Users\suman\Downloads\superdocs-regulatory-validator` was observed during inspection and is **not** being copied or treated as this project.
 9. Phase 1C adds Docker PostgreSQL + pgvector and SQLAlchemy foundation only; no domain models yet.
 10. Phase 1D adds SQLAlchemy domain models only; no validator logic or migrations yet.
+11. Phase 1E adds deterministic rule evaluation only; no API routes, LLM, or LangGraph yet.
 
 ---
 
@@ -84,6 +86,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 - `backend/tests/test_health.py` — GET `/health` returns 200 and `{"status": "ok"}`
 - `backend/tests/test_database.py` — PostgreSQL connectivity and pgvector extension (integration)
 - `backend/tests/test_models.py` — regulatory domain models persist and relate correctly
+- `backend/tests/test_validator.py` — deterministic validation pass/fail/edge cases for Authorities A and B
 
 ---
 
