@@ -2,7 +2,7 @@
 
 ## Status
 
-**Current phase:** Phase 0 — project bootstrap (docs + structure only)  
+**Current phase:** Phase 1B — FastAPI foundation  
 **Date:** 2026-08-10
 
 ---
@@ -15,13 +15,14 @@
 - Created `PROGRESS.md` (this file)
 - Created `.gitignore` (secrets, venvs, node_modules, local uploads, etc.)
 - Recorded initial assumptions and decisions
+- Phase 1B: FastAPI foundation implemented (`backend/requirements.txt`, health endpoint, pytest)
 
 ---
 
 ## Current work
 
-- Phase 0 complete pending human review
-- Waiting for permission before Phase 1
+- Phase 1B FastAPI foundation complete (not yet committed)
+- Waiting for permission before next phase
 
 ---
 
@@ -47,7 +48,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 4. SuperDocs REST integration remains **stubbed** until a later phase after docs/credentials review.
 5. Development proceeds on **`main`**; no extra branches unless approved.
 6. Placeholder directories use `.gitkeep` so structure is visible before code exists.
-7. No application runtime code exists yet; nothing is claimed as working beyond bootstrap files.
+7. Phase 1B adds minimal FastAPI health endpoint only; no validator logic yet.
 8. An unrelated folder `C:\Users\suman\Downloads\superdocs-regulatory-validator` was observed during inspection and is **not** being copied or treated as this project.
 
 ---
@@ -69,15 +70,14 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 
 - Official SuperDocs task PDF/path not located on disk; reconciliation pending if provided.
 - Git repository not initialized yet (intentional; mutating Git requires permission).
-- No dependencies installed (intentional).
-- No application code yet (intentional).
+- Phase 1B dependencies installed in local `backend\.venv` only (not committed).
 - Cursor IDE may still be opened on a temporary metadata workspace; human should open the permanent project folder for ongoing work.
 
 ---
 
 ## Tests
 
-None yet (Phase 0 has no application behavior to test).
+- `backend/tests/test_health.py` — GET `/health` returns 200 and `{"status": "ok"}`
 
 ---
 
