@@ -2,7 +2,7 @@
 
 ## Status
 
-**Current phase:** Phase 1C — database infrastructure  
+**Current phase:** Phase 1D — regulatory domain models  
 **Date:** 2026-08-10
 
 ---
@@ -17,12 +17,13 @@
 - Recorded initial assumptions and decisions
 - Phase 1B: FastAPI foundation implemented (`backend/requirements.txt`, health endpoint, pytest)
 - Phase 1C: PostgreSQL + pgvector Docker, SQLAlchemy engine/session, database integration test
+- Phase 1D: Regulatory domain models (filing package, documents, validation run, findings, approvals)
 
 ---
 
 ## Current work
 
-- Phase 1C database infrastructure complete (not yet committed)
+- Phase 1D regulatory domain models complete (not yet committed)
 - Waiting for permission before next phase
 
 ---
@@ -52,6 +53,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 7. Phase 1B adds minimal FastAPI health endpoint only; no validator logic yet.
 8. An unrelated folder `C:\Users\suman\Downloads\superdocs-regulatory-validator` was observed during inspection and is **not** being copied or treated as this project.
 9. Phase 1C adds Docker PostgreSQL + pgvector and SQLAlchemy foundation only; no domain models yet.
+10. Phase 1D adds SQLAlchemy domain models only; no validator logic or migrations yet.
 
 ---
 
@@ -81,6 +83,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 
 - `backend/tests/test_health.py` — GET `/health` returns 200 and `{"status": "ok"}`
 - `backend/tests/test_database.py` — PostgreSQL connectivity and pgvector extension (integration)
+- `backend/tests/test_models.py` — regulatory domain models persist and relate correctly
 
 ---
 
