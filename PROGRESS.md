@@ -2,7 +2,7 @@
 
 ## Status
 
-**Current phase:** Phase 1B — FastAPI foundation  
+**Current phase:** Phase 1C — database infrastructure  
 **Date:** 2026-08-10
 
 ---
@@ -16,12 +16,13 @@
 - Created `.gitignore` (secrets, venvs, node_modules, local uploads, etc.)
 - Recorded initial assumptions and decisions
 - Phase 1B: FastAPI foundation implemented (`backend/requirements.txt`, health endpoint, pytest)
+- Phase 1C: PostgreSQL + pgvector Docker, SQLAlchemy engine/session, database integration test
 
 ---
 
 ## Current work
 
-- Phase 1B FastAPI foundation complete (not yet committed)
+- Phase 1C database infrastructure complete (not yet committed)
 - Waiting for permission before next phase
 
 ---
@@ -50,6 +51,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 6. Placeholder directories use `.gitkeep` so structure is visible before code exists.
 7. Phase 1B adds minimal FastAPI health endpoint only; no validator logic yet.
 8. An unrelated folder `C:\Users\suman\Downloads\superdocs-regulatory-validator` was observed during inspection and is **not** being copied or treated as this project.
+9. Phase 1C adds Docker PostgreSQL + pgvector and SQLAlchemy foundation only; no domain models yet.
 
 ---
 
@@ -78,6 +80,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 ## Tests
 
 - `backend/tests/test_health.py` — GET `/health` returns 200 and `{"status": "ok"}`
+- `backend/tests/test_database.py` — PostgreSQL connectivity and pgvector extension (integration)
 
 ---
 
