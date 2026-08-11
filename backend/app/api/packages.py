@@ -12,8 +12,7 @@ from app.api.schemas import (
 from app.db.database import get_db
 from app.models.filing import FilingPackage, PackageDocument
 from app.validator.rules import get_rules_for_authority
-
-
+from app.workflow.validation_workflow import run_validation
 router = APIRouter(
     prefix="/api/v1/packages",
     tags=["packages"],
@@ -95,3 +94,36 @@ def create_document(
         storage_path=document.storage_path,
         sort_order=document.sort_order,
     )
+
+
+@router.post(
+    "/{package_id}/validate",
+    status_code=status.HTTP_201_CREATED,
+)
+def validate_package(
+    package_id: UUID,
+    db: Session = Depends(get_db),
+):
+    package = db.get(FilingPackage, package_id)
+
+    if package is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Filing package not found",
+        )
+
+    try:
+        validation_run = run_validation(db, package_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return {
+        "id": validation_run.id,
+        "package_id": validation_run.package_id,
+        "status": validation_run.status,
+        "started_at": validation_run.started_at,
+        "completed_at": validation_run.completed_at,
+    }

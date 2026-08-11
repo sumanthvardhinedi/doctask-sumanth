@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
 from app.models.filing import FilingPackage, PackageDocument
+from app.models.validation import ValidationRun
 
 
 client = TestClient(app)
@@ -258,5 +259,100 @@ def test_adding_document_keeps_package_pending() -> None:
 
         assert package is not None
         assert package.status == "pending"
+    finally:
+        db.close()
+
+
+def test_validate_package_successfully() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Validation Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+
+    package_id = package_response.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert uuid.UUID(body["id"])
+    assert body["package_id"] == package_id
+    assert body["status"] in {"completed", "awaiting_approval"}
+
+
+def test_validate_unknown_package_returns_404() -> None:
+    package_id = uuid.uuid4()
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Filing package not found"
+
+
+def test_validation_run_is_persisted() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Persisted Validation Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+
+    package_id = uuid.UUID(package_response.json()["id"])
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert response.status_code == 201
+
+    validation_run_id = uuid.UUID(response.json()["id"])
+
+    db = SessionLocal()
+    try:
+        validation_run = db.get(ValidationRun, validation_run_id)
+
+        assert validation_run is not None
+        assert validation_run.package_id == package_id
+        assert validation_run.status in {"completed", "awaiting_approval"}
     finally:
         db.close()
