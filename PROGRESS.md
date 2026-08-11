@@ -1,8 +1,7 @@
 # PROGRESS.md
 
 ## Status
-
-**Current phase:** Phase 1E — deterministic regulatory validator  
+**Current phase:** Phase 1F — validation workflow foundation
 **Date:** 2026-08-10
 
 ---
@@ -19,28 +18,21 @@
 - Phase 1C: PostgreSQL + pgvector Docker, SQLAlchemy engine/session, database integration test
 - Phase 1D: Regulatory domain models (filing package, documents, validation run, findings, approvals)
 - Phase 1E: Deterministic regulatory validator (rule evaluation, structured findings, persistence mapping)
-
----
+- Phase 1F: Validation workflow orchestration connecting filing packages, validation runs, the deterministic validator, and persisted findings
 
 ## Current work
 
-- Phase 1E deterministic validator complete
-- Waiting for permission before Phase 1F
+- Phase 1F validation workflow complete
+- Phase 1 complete
+- 19 backend tests passing
+- Preparing Phase 1F Git checkpoint
 
 ---
+## Next work
 
-## Next work (proposed Phase 1)
-
-Phase 1 (not started; needs permission):
-
-- Initialize git repository on `main` **only after permission** (Git mutation requires explicit approval)
-- Add minimal backend/frontend dependency manifests **without installing yet or after install permission**
-- Add `.env.example` with non-secret placeholders
-- Create empty FastAPI app skeleton / health endpoint (first real code)
-- Add `docker-compose.yml` for PostgreSQL + pgvector (no app logic)
-
-Exact Phase 1 scope will be confirmed with the human engineer before any coding.
-
+- Phase 2: SuperDocs REST API integration and document/package workflow
+- Phase 3: Agentic validation/review workflow and human approval integration
+- Phase 4: Frontend integration, end-to-end validation, hardening, and final documentation
 ---
 
 ## Assumptions
@@ -56,6 +48,7 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 9. Phase 1C adds Docker PostgreSQL + pgvector and SQLAlchemy foundation only; no domain models yet.
 10. Phase 1D adds SQLAlchemy domain models only; no validator logic or migrations yet.
 11. Phase 1E adds deterministic rule evaluation only; no API routes, LLM, or LangGraph yet.
+12. Phase 1F orchestrates the deterministic Phase 1E validator and persistence layer; it does not introduce LLM or LangGraph dependencies.
 
 ---
 
@@ -73,33 +66,33 @@ Exact Phase 1 scope will be confirmed with the human engineer before any coding.
 ---
 
 ## Known issues
-
-- Official SuperDocs task PDF/path not located on disk; reconciliation pending if provided.
-- Git repository not initialized yet (intentional; mutating Git requires permission).
-- Phase 1B dependencies installed in local `backend\.venv` only (not committed).
-- Cursor IDE may still be opened on a temporary metadata workspace; human should open the permanent project folder for ongoing work.
-
----
-
+- No current Git issues; repository is initialized on `main` and Phase 1A–1E checkpoints are committed and pushed.
 ## Tests
 
 - `backend/tests/test_health.py` — GET `/health` returns 200 and `{"status": "ok"}`
 - `backend/tests/test_database.py` — PostgreSQL connectivity and pgvector extension (integration)
 - `backend/tests/test_models.py` — regulatory domain models persist and relate correctly
 - `backend/tests/test_validator.py` — deterministic validation pass/fail/edge cases for Authorities A and B
-
+- `backend/tests/test_workflow.py` — validation workflow persistence, document mapping, missing packages, and failed authority handling
 ---
 
 ## Git checkpoints
 
 | Checkpoint | Status |
-|------------|--------|
-| Phase 0 bootstrap (structure + TASK/PROGRESS/.gitignore) | **Ready to propose** after human review — **not committed** |
-| Later checkpoints | Not started |
+| --- | --- |
+| Phase 0 bootstrap | **Committed** |
+| Phase 1B FastAPI foundation | **Committed and pushed** |
+| Phase 1C PostgreSQL + pgvector foundation | **Committed and pushed** |
+| Phase 1D regulatory domain models | **Committed and pushed** |
+| Phase 1E deterministic validator | **Committed and pushed** |
+| Phase 1F validation workflow | **Ready to commit** |
 
-**Git mutation status:** No `git init` / `git add` / `git commit` / `git push` has been run for this project.
+**Current branch:** `main`
 
----
+**Remote:** `origin/main`
+
+**Current last committed Phase:** Phase 1E
+**Phase 1F:** Implementation complete; pending commit and push
 
 ## Security check (Phase 0)
 
