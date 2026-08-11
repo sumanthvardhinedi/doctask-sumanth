@@ -12,5 +12,8 @@ class Settings(BaseSettings):
         "postgresql+psycopg://superdocs:superdocs_dev_password@localhost:5432/superdocs"
     )
 
+    superdocs_base_url: str = "https://api.superdocs.app"
+    superdocs_api_key: str
+
 
 settings = Settings()
