@@ -356,3 +356,229 @@ def test_validation_run_is_persisted() -> None:
         assert validation_run.status in {"completed", "awaiting_approval"}
     finally:
         db.close()
+
+def test_get_validation_runs_for_package() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Validation Runs Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    validation_response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert validation_response.status_code == 201
+
+    validation_run_id = validation_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs",
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert len(body) == 1
+    assert body[0]["id"] == validation_run_id
+    assert body[0]["package_id"] == package_id
+    assert body[0]["authority_code"] == "authority_a"
+    assert body[0]["status"] in {"completed", "awaiting_approval"}
+def test_get_validation_runs_returns_empty_list() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "No Validation Runs Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_validation_runs_unknown_package_returns_404() -> None:
+    package_id = uuid.uuid4()
+
+    response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs",
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Filing package not found"
+
+
+def test_get_validation_findings_for_run() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Findings Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    validation_response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert validation_response.status_code == 201
+
+    validation_run_id = validation_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs/{validation_run_id}/findings",
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert isinstance(body, list)
+
+    for finding in body:
+        assert uuid.UUID(finding["id"])
+        assert finding["validation_run_id"] == validation_run_id
+        assert "rule_id" in finding
+        assert "rule_category" in finding
+        assert "severity" in finding
+        assert "result" in finding
+        assert "explanation" in finding
+        assert "is_hard_rejection" in finding
+
+
+def test_get_validation_findings_unknown_run_returns_404() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Unknown Run Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    validation_run_id = uuid.uuid4()
+
+    response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs/{validation_run_id}/findings",
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Validation run not found"
+
+
+def test_get_validation_findings_rejects_run_from_another_package() -> None:
+    first_package = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "First Findings Package",
+        },
+    )
+
+    second_package = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Second Findings Package",
+        },
+    )
+
+    assert first_package.status_code == 201
+    assert second_package.status_code == 201
+
+    first_package_id = first_package.json()["id"]
+    second_package_id = second_package.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{first_package_id}/documents",
+        json={
+            "filename": "document.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/document.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    validation_response = client.post(
+        f"/api/v1/packages/{first_package_id}/validate",
+    )
+
+    assert validation_response.status_code == 201
+
+    validation_run_id = validation_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/packages/{second_package_id}/validation-runs/{validation_run_id}/findings",
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Validation run not found"
+
+
+def test_get_validation_findings_unknown_package_returns_404() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Unknown Package Findings",
+        },
+    )
+
+    assert package_response.status_code == 201
+
+    validation_run_id = uuid.uuid4()
+    unknown_package_id = uuid.uuid4()
+
+    response = client.get(
+        f"/api/v1/packages/{unknown_package_id}/validation-runs/{validation_run_id}/findings",
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Filing package not found"

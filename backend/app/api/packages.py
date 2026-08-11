@@ -1,18 +1,25 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import (
     DocumentCreateRequest,
     DocumentResponse,
+    FindingResponse,
     PackageCreateRequest,
     PackageResponse,
+    ValidationRunResponse,
 )
 from app.db.database import get_db
+from app.models.finding import Finding
 from app.models.filing import FilingPackage, PackageDocument
+from app.models.validation import ValidationRun
 from app.validator.rules import get_rules_for_authority
 from app.workflow.validation_workflow import run_validation
+
+
 router = APIRouter(
     prefix="/api/v1/packages",
     tags=["packages"],
@@ -127,3 +134,88 @@ def validate_package(
         "started_at": validation_run.started_at,
         "completed_at": validation_run.completed_at,
     }
+
+
+@router.get(
+    "/{package_id}/validation-runs",
+    response_model=list[ValidationRunResponse],
+)
+def get_validation_runs(
+    package_id: UUID,
+    db: Session = Depends(get_db),
+) -> list[ValidationRunResponse]:
+    package = db.get(FilingPackage, package_id)
+
+    if package is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Filing package not found",
+        )
+
+    runs = db.scalars(
+        select(ValidationRun)
+        .where(ValidationRun.package_id == package_id)
+        .order_by(ValidationRun.created_at.desc())
+    ).all()
+
+    return [
+        ValidationRunResponse(
+            id=run.id,
+            package_id=run.package_id,
+            authority_code=run.authority_code,
+            status=run.status,
+            current_stage=run.current_stage,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+        )
+        for run in runs
+    ]
+
+
+@router.get(
+    "/{package_id}/validation-runs/{validation_run_id}/findings",
+    response_model=list[FindingResponse],
+)
+def get_validation_findings(
+    package_id: UUID,
+    validation_run_id: UUID,
+    db: Session = Depends(get_db),
+) -> list[FindingResponse]:
+    package = db.get(FilingPackage, package_id)
+
+    if package is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Filing package not found",
+        )
+
+    validation_run = db.get(ValidationRun, validation_run_id)
+
+    if validation_run is None or validation_run.package_id != package_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Validation run not found",
+        )
+
+    findings = db.scalars(
+        select(Finding)
+        .where(Finding.validation_run_id == validation_run_id)
+        .order_by(Finding.created_at.asc())
+    ).all()
+
+    return [
+        FindingResponse(
+            id=finding.id,
+            validation_run_id=finding.validation_run_id,
+            package_document_id=finding.package_document_id,
+            rule_id=finding.rule_id,
+            rule_category=finding.rule_category,
+            severity=finding.severity,
+            result=finding.result,
+            location=finding.location,
+            evidence=finding.evidence,
+            explanation=finding.explanation,
+            is_hard_rejection=finding.is_hard_rejection,
+        )
+        for finding in findings
+    ]
