@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
-from app.models.filing import FilingPackage
+from app.models.filing import FilingPackage, PackageDocument
 
 
 client = TestClient(app)
@@ -87,3 +87,176 @@ def test_new_package_has_pending_status() -> None:
 
     assert response.status_code == 201
     assert response.json()["status"] == "pending"
+
+
+def test_create_document_successfully() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Document Test Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+
+    package_id = package_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 125000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert uuid.UUID(body["id"])
+    assert body["package_id"] == package_id
+    assert body["filename"] == "cover_letter.pdf"
+    assert body["content_type"] == "application/pdf"
+    assert body["file_size_bytes"] == 125000
+    assert body["storage_path"] == "test/cover_letter.pdf"
+    assert body["sort_order"] == 0
+
+
+def test_create_document_rejects_unknown_package() -> None:
+    package_id = str(uuid.uuid4())
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 125000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Filing package not found"
+
+
+def test_created_document_is_persisted() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Persistence Test Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+
+    package_id = uuid.UUID(package_response.json()["id"])
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "financial_statement.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 250000,
+            "storage_path": "test/financial_statement.pdf",
+            "sort_order": 1,
+        },
+    )
+
+    assert response.status_code == 201
+
+    document_id = uuid.UUID(response.json()["id"])
+
+    db = SessionLocal()
+    try:
+        document = db.get(PackageDocument, document_id)
+
+        assert document is not None
+        assert document.package_id == package_id
+        assert document.filename == "financial_statement.pdf"
+        assert document.content_type == "application/pdf"
+        assert document.file_size_bytes == 250000
+        assert document.storage_path == "test/financial_statement.pdf"
+        assert document.sort_order == 1
+    finally:
+        db.close()
+
+
+def test_document_belongs_to_correct_package() -> None:
+    first_package = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "First Package",
+        },
+    )
+
+    second_package = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Second Package",
+        },
+    )
+
+    assert first_package.status_code == 201
+    assert second_package.status_code == 201
+
+    first_package_id = first_package.json()["id"]
+    second_package_id = second_package.json()["id"]
+
+    response = client.post(
+        f"/api/v1/packages/{first_package_id}/documents",
+        json={
+            "filename": "document.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/document.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["package_id"] == first_package_id
+    assert response.json()["package_id"] != second_package_id
+
+
+def test_adding_document_keeps_package_pending() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Pending Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+
+    package_id = uuid.UUID(package_response.json()["id"])
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "document.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/document.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert response.status_code == 201
+
+    db = SessionLocal()
+    try:
+        package = db.get(FilingPackage, package_id)
+
+        assert package is not None
+        assert package.status == "pending"
+    finally:
+        db.close()

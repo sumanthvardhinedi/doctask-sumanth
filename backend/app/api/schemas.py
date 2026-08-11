@@ -16,3 +16,23 @@ class PackageResponse(BaseModel):
     name: str
     status: str
     document_count: int
+
+
+class DocumentCreateRequest(BaseModel):
+    filename: str
+    content_type: str
+    file_size_bytes: int
+    storage_path: str
+    sort_order: int
+
+
+class DocumentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    package_id: UUID
+    filename: str
+    content_type: str
+    file_size_bytes: int
+    storage_path: str
+    sort_order: int
