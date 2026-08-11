@@ -1,0 +1,100 @@
+
+{
+    "authority_code": "authority_a",
+    "name": "Authority A",
+    "rules": [
+      {
+        "rule_id": "mandatory.cover_letter",
+        "category": "mandatory_sections",
+        "description": "Cover letter is required bu Authority A",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "required_document",
+        "parameters": {
+          "filename": "cover_letter.pdf"
+        }
+      },
+      {
+        "rule_id": "mandatory.appendix_a",
+        "category": "mandatory_sections",
+        "description": "Appendix A is required",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "required_document",
+        "parameters": {
+          "filename": "appendix_a.pdf"
+        }
+      },
+      {
+        "rule_id": "naming.lowercase_underscore",
+        "category": "naming_conventions",
+        "description": "Filenames must use lowercase letters, numbers, and underscores",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "filename_pattern",
+        "parameters": {
+          "pattern": "^[a-z0-9_]+.[a-z0-9]+$"
+        }
+      },
+      {
+        "rule_id": "ordering.standard",
+        "category": "ordering",
+        "description": "Documents must follow the published filing order",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "document_order",
+        "parameters": {
+          "order": [
+            "cover_letter.pdf",
+            "appendix_a.pdf"
+          ]
+        }
+      },
+      {
+        "rule_id": "format.pdf_only",
+        "category": "file_format",
+        "description": "Only PDF documents are accepted",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "allowed_content_types",
+        "parameters": {
+          "content_types": [
+            "application/pdf"
+          ]
+        }
+      },
+      {
+        "rule_id": "size.max_ten_mb",
+        "category": "file_size_limits",
+        "description": "Each file must be 10 MB or smaller",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "max_file_size",
+        "parameters": {
+          "max_bytes": 10485760
+        }
+      },
+      {
+        "rule_id": "signature.cover_letter",
+        "category": "signature_requirements",
+        "description": "Cover letter must include a signature",
+        "severity": "error",
+        "is_hard_rejection": true,
+        "rule_type": "requires_signature",
+        "parameters": {
+          "filename": "cover_letter.pdf"
+        }
+      },
+      {
+        "rule_id": "declaration.cover_letter",
+        "category": "declarations",
+        "description": "Cover letter must include the required declaration",
+        "severity": "warning",
+        "is_hard_rejection": false,
+        "rule_type": "requires_declaration",
+        "parameters": {
+          "filename": "cover_letter.pdf"
+        }
+      }
+    ]
+  }
