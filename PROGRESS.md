@@ -16,15 +16,39 @@ Phase 2C — Filing package REST surface
 ✅ Package validation
 ✅ Validation-run retrieval
 ✅ Validation-findings retrieval
-✅ 53 original tests passing
 ✅ Committed and pushed
 
-Phase 2D — Human approval / review API
+Phase 2D Slice 1 — Human finding approval API
 ✅ Finding approval request/response schemas
 ✅ Per-finding approval endpoint
-✅ Approve finding
-✅ Reject finding
+✅ Approve / reject finding
 ✅ Prevent duplicate approval decision
-✅ Approval persistence through ApprovalDecision
-✅ 3 new approval tests
-✅ Full suite: 56 passed, 1 warning
+✅ ApprovalDecision persistence
+✅ Commit: ff7f4ce feat: add per-finding approval API
+✅ Docs: b105349
+✅ Full suite at Slice 1: 56 passed, 1 warning
+
+Phase 2D Slice 2 — SuperDocs-assisted review/edit/export
+✅ Complete
+✅ DocumentStore resolves PackageDocument.storage_path under UPLOADS_ROOT (path-escape safe)
+✅ build_edit_instruction from trusted finding metadata; document text wrapped as untrusted DATA
+✅ SuperDocsReviewSession persistence (separate from finding ApprovalDecision)
+✅ Workflow: start_superdocs_review → decide_superdocs_review → export_superdocs_review
+✅ SuperDocs approve() only after human decision; export only after approved status
+✅ Rejection path does not export
+✅ Findings without package_document_id rejected with explicit 400
+✅ REST:
+  - POST /api/v1/packages/{id}/validation-runs/{run}/findings/{finding}/superdocs-review
+  - POST /api/v1/packages/{id}/superdocs-reviews/{review}/decision
+  - POST /api/v1/packages/{id}/superdocs-reviews/{review}/export
+✅ Tests: test_superdocs_review.py (8 tests)
+✅ Full suite: 64 passed, 1 warning
+✅ Assumptions:
+  - Local uploads root via UPLOADS_ROOT (default uploads/); no S3
+  - One SuperDocs review session per finding (unique finding_id)
+  - Finding approval ≠ proposed-change approval
+
+Remaining next work:
+- Phase 2E: resumability, idempotency, concurrency, prompt-injection hardening, observability
+- Phase 2F: final docs / second-authority proof / cleanup
+- Phase 3: agentic workflow requirements from TASK.md

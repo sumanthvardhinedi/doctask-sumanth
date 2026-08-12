@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     )
 
     superdocs_base_url: str = "https://api.superdocs.app"
-    superdocs_api_key: str
+    superdocs_api_key: str = ""
+    uploads_root: str = "uploads"
 
 
 settings = Settings()

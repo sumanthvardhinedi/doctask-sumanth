@@ -1,9 +1,11 @@
 from uuid import UUID
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models.finding import ApprovalDecision, Finding
+
+from app.api.deps import get_document_store, get_superdocs_client
 from app.api.schemas import (
     DocumentCreateRequest,
     DocumentResponse,
@@ -12,13 +14,23 @@ from app.api.schemas import (
     FindingResponse,
     PackageCreateRequest,
     PackageResponse,
+    SuperDocsReviewDecisionRequest,
+    SuperDocsReviewResponse,
     ValidationRunResponse,
 )
-
 from app.db.database import get_db
+from app.integrations.superdocs.client import SuperDocsClient
 from app.models.filing import FilingPackage, PackageDocument
+from app.models.finding import ApprovalDecision, Finding
 from app.models.validation import ValidationRun
+from app.storage.document_store import DocumentStore
 from app.validator.rules import get_rules_for_authority
+from app.workflow.superdocs_review import (
+    SuperDocsReviewError,
+    decide_superdocs_review,
+    export_superdocs_review,
+    start_superdocs_review,
+)
 from app.workflow.validation_workflow import run_validation
 
 
@@ -26,6 +38,30 @@ router = APIRouter(
     prefix="/api/v1/packages",
     tags=["packages"],
 )
+
+
+def _review_response(review) -> SuperDocsReviewResponse:
+    export_result = None
+    if review.export_result_json:
+        export_result = json.loads(review.export_result_json)
+
+    return SuperDocsReviewResponse(
+        id=review.id,
+        package_id=review.package_id,
+        validation_run_id=review.validation_run_id,
+        finding_id=review.finding_id,
+        package_document_id=review.package_document_id,
+        status=review.status,
+        current_stage=review.current_stage,
+        edit_instruction=review.edit_instruction,
+        superdocs_session_id=review.superdocs_session_id,
+        job_id=review.job_id,
+        proposed_changes=json.loads(review.proposed_changes_json),
+        export_result=export_result,
+        human_approved=review.human_approved,
+        human_notes=review.human_notes,
+        decided_at=review.decided_at,
+    )
 
 
 @router.post(
@@ -221,6 +257,8 @@ def get_validation_findings(
         )
         for finding in findings
     ]
+
+
 @router.post(
     "/{package_id}/validation-runs/{validation_run_id}/findings/{finding_id}/approval",
     response_model=FindingApprovalResponse,
@@ -279,3 +317,96 @@ def approve_finding(
         reviewer_notes=decision.reviewer_notes,
         decided_at=decision.decided_at,
     )
+
+
+@router.post(
+    "/{package_id}/validation-runs/{validation_run_id}/findings/{finding_id}/superdocs-review",
+    response_model=SuperDocsReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_superdocs_review(
+    package_id: UUID,
+    validation_run_id: UUID,
+    finding_id: UUID,
+    db: Session = Depends(get_db),
+    client: SuperDocsClient = Depends(get_superdocs_client),
+    document_store: DocumentStore = Depends(get_document_store),
+) -> SuperDocsReviewResponse:
+    try:
+        review = start_superdocs_review(
+            db,
+            package_id=package_id,
+            validation_run_id=validation_run_id,
+            finding_id=finding_id,
+            client=client,
+            document_store=document_store,
+        )
+    except SuperDocsReviewError as exc:
+        detail = str(exc)
+        status_code = status.HTTP_400_BAD_REQUEST
+        if "not found" in detail.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "already exists" in detail.lower():
+            status_code = status.HTTP_409_CONFLICT
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+    return _review_response(review)
+
+
+@router.post(
+    "/{package_id}/superdocs-reviews/{review_id}/decision",
+    response_model=SuperDocsReviewResponse,
+)
+def decide_superdocs_review_endpoint(
+    package_id: UUID,
+    review_id: UUID,
+    request: SuperDocsReviewDecisionRequest,
+    db: Session = Depends(get_db),
+    client: SuperDocsClient = Depends(get_superdocs_client),
+) -> SuperDocsReviewResponse:
+    try:
+        review = decide_superdocs_review(
+            db,
+            package_id=package_id,
+            review_id=review_id,
+            approved=request.approved,
+            human_notes=request.human_notes,
+            client=client,
+        )
+    except SuperDocsReviewError as exc:
+        detail = str(exc)
+        status_code = status.HTTP_400_BAD_REQUEST
+        if "not found" in detail.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "already has a human decision" in detail.lower():
+            status_code = status.HTTP_409_CONFLICT
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+    return _review_response(review)
+
+
+@router.post(
+    "/{package_id}/superdocs-reviews/{review_id}/export",
+    response_model=SuperDocsReviewResponse,
+)
+def export_superdocs_review_endpoint(
+    package_id: UUID,
+    review_id: UUID,
+    db: Session = Depends(get_db),
+    client: SuperDocsClient = Depends(get_superdocs_client),
+) -> SuperDocsReviewResponse:
+    try:
+        review = export_superdocs_review(
+            db,
+            package_id=package_id,
+            review_id=review_id,
+            client=client,
+        )
+    except SuperDocsReviewError as exc:
+        detail = str(exc)
+        status_code = status.HTTP_400_BAD_REQUEST
+        if "not found" in detail.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+    return _review_response(review)

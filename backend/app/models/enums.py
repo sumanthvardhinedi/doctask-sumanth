@@ -27,3 +27,11 @@ class FindingResult(StrEnum):
     FAIL = "fail"
     PASS = "pass"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+
+class SuperDocsReviewStatus(StrEnum):
+    PROPOSED = "proposed"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPORTED = "exported"
+    FAILED = "failed"

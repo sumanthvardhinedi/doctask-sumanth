@@ -80,3 +80,28 @@ class FindingApprovalResponse(BaseModel):
     approved: bool
     reviewer_notes: str | None
     decided_at: datetime
+
+
+class SuperDocsReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    package_id: UUID
+    validation_run_id: UUID
+    finding_id: UUID
+    package_document_id: UUID
+    status: str
+    current_stage: str | None
+    edit_instruction: str
+    superdocs_session_id: str
+    job_id: str
+    proposed_changes: dict | list
+    export_result: dict | list | None = None
+    human_approved: bool | None = None
+    human_notes: str | None = None
+    decided_at: datetime | None = None
+
+
+class SuperDocsReviewDecisionRequest(BaseModel):
+    approved: bool
+    human_notes: str | None = None
