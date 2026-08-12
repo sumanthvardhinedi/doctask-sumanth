@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi.testclient import TestClient
-
+from app.models.finding import ApprovalDecision
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
 from app.models.filing import FilingPackage, PackageDocument
@@ -582,3 +582,200 @@ def test_get_validation_findings_unknown_package_returns_404() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Filing package not found"
+
+def test_approve_finding_successfully() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Approval Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "cover_letter.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/cover_letter.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    validation_response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert validation_response.status_code == 201
+    validation_run_id = validation_response.json()["id"]
+
+    findings_response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{validation_run_id}/findings",
+    )
+
+    assert findings_response.status_code == 200
+
+    findings = findings_response.json()
+    assert findings
+    finding_id = findings[0]["id"]
+    response = client.post(
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{validation_run_id}/findings/{finding_id}/approval",
+        json={
+            "approved": True,
+            "reviewer_notes": "Reviewed and accepted.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert uuid.UUID(body["id"])
+    assert body["finding_id"] == finding_id
+    assert body["approved"] is True
+    assert body["reviewer_notes"] == "Reviewed and accepted."
+    assert body["decided_at"] is not None
+
+    db = SessionLocal()
+    try:
+        decision = db.query(ApprovalDecision).filter_by(
+            finding_id=uuid.UUID(finding_id)
+        ).first()
+
+        assert decision is not None
+        assert decision.approved is True
+        assert decision.reviewer_notes == "Reviewed and accepted."
+    finally:
+        db.close()
+
+
+def test_reject_finding_successfully() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Rejection Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "document.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/document.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    validation_response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert validation_response.status_code == 201
+    validation_run_id = validation_response.json()["id"]
+
+    findings_response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{validation_run_id}/findings",
+    )
+
+    assert findings_response.status_code == 200
+
+    findings = findings_response.json()
+    assert findings
+    finding_id = findings[0]["id"]
+
+    response = client.post(
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{validation_run_id}/findings/{finding_id}/approval",
+        json={
+            "approved": False,
+            "reviewer_notes": "Requires correction.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["approved"] is False
+    assert response.json()["reviewer_notes"] == "Requires correction."
+
+
+def test_cannot_decide_on_finding_twice() -> None:
+    package_response = client.post(
+        "/api/v1/packages",
+        json={
+            "authority_code": "authority_a",
+            "name": "Duplicate Approval Package",
+        },
+    )
+
+    assert package_response.status_code == 201
+    package_id = package_response.json()["id"]
+
+    document_response = client.post(
+        f"/api/v1/packages/{package_id}/documents",
+        json={
+            "filename": "document.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": 1000,
+            "storage_path": "test/document.pdf",
+            "sort_order": 0,
+        },
+    )
+
+    assert document_response.status_code == 201
+
+    validation_response = client.post(
+        f"/api/v1/packages/{package_id}/validate",
+    )
+
+    assert validation_response.status_code == 201
+    validation_run_id = validation_response.json()["id"]
+
+    findings_response = client.get(
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{validation_run_id}/findings",
+    )
+
+    assert findings_response.status_code == 200
+
+    findings = findings_response.json()
+
+    assert findings
+    finding_id = findings[0]["id"]
+
+    approval_url = (
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{validation_run_id}/findings/{finding_id}/approval"
+    )
+
+    first_response = client.post(
+        approval_url,
+        json={"approved": True},
+    )
+
+    assert first_response.status_code == 200
+
+    second_response = client.post(
+        approval_url,
+        json={"approved": False},
+    )
+
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == (
+        "Finding already has an approval decision"
+    )

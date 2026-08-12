@@ -3,17 +3,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+from app.models.finding import ApprovalDecision, Finding
 from app.api.schemas import (
     DocumentCreateRequest,
     DocumentResponse,
+    FindingApprovalRequest,
+    FindingApprovalResponse,
     FindingResponse,
     PackageCreateRequest,
     PackageResponse,
     ValidationRunResponse,
 )
+
 from app.db.database import get_db
-from app.models.finding import Finding
 from app.models.filing import FilingPackage, PackageDocument
 from app.models.validation import ValidationRun
 from app.validator.rules import get_rules_for_authority
@@ -219,3 +221,61 @@ def get_validation_findings(
         )
         for finding in findings
     ]
+@router.post(
+    "/{package_id}/validation-runs/{validation_run_id}/findings/{finding_id}/approval",
+    response_model=FindingApprovalResponse,
+)
+def approve_finding(
+    package_id: UUID,
+    validation_run_id: UUID,
+    finding_id: UUID,
+    request: FindingApprovalRequest,
+    db: Session = Depends(get_db),
+) -> FindingApprovalResponse:
+    package = db.get(FilingPackage, package_id)
+
+    if package is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Filing package not found",
+        )
+
+    validation_run = db.get(ValidationRun, validation_run_id)
+
+    if validation_run is None or validation_run.package_id != package_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Validation run not found",
+        )
+
+    finding = db.get(Finding, finding_id)
+
+    if finding is None or finding.validation_run_id != validation_run_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Finding not found",
+        )
+
+    if finding.approval_decision is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Finding already has an approval decision",
+        )
+
+    decision = ApprovalDecision(
+        finding_id=finding.id,
+        approved=request.approved,
+        reviewer_notes=request.reviewer_notes,
+    )
+
+    db.add(decision)
+    db.commit()
+    db.refresh(decision)
+
+    return FindingApprovalResponse(
+        id=decision.id,
+        finding_id=decision.finding_id,
+        approved=decision.approved,
+        reviewer_notes=decision.reviewer_notes,
+        decided_at=decision.decided_at,
+    )

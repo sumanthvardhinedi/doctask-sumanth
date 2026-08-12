@@ -1,10 +1,8 @@
-from uuid import UUID
-
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
 
 class PackageCreateRequest(BaseModel):
     authority_code: str
@@ -67,3 +65,18 @@ class FindingResponse(BaseModel):
     evidence: str | None
     explanation: str
     is_hard_rejection: bool
+
+
+class FindingApprovalRequest(BaseModel):
+    approved: bool
+    reviewer_notes: str | None = None
+
+
+class FindingApprovalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    finding_id: UUID
+    approved: bool
+    reviewer_notes: str | None
+    decided_at: datetime
