@@ -1,10 +1,11 @@
 import uuid
 from pathlib import Path
 from unittest.mock import Mock
-
+from threading import Barrier
+from app.models.enums import SuperDocsReviewStatus
 import pytest
 from fastapi.testclient import TestClient
-
+from concurrent.futures import ThreadPoolExecutor
 from app.api.deps import get_document_store, get_superdocs_client
 from app.db.database import Base, SessionLocal, engine
 from app.main import app
@@ -15,6 +16,7 @@ from app.models.superdocs_review import SuperDocsReviewSession
 from app.models.validation import ValidationRun
 from app.services.edit_instruction import build_edit_instruction
 from app.storage.document_store import DocumentStore
+from datetime import datetime, timezone
 
 
 client = TestClient(app)
@@ -215,8 +217,8 @@ def test_superdocs_review_reject_does_not_export(uploads_dir: Path) -> None:
         )
         assert decision.status_code == 200
         assert decision.json()["status"] == "rejected"
-        mock_client.approve.assert_called_once()
-        assert mock_client.approve.call_args.kwargs["approved"] is False
+        assert decision.json()["human_approved"] is False
+        mock_client.approve.assert_not_called()
 
         exported = client.post(
             f"/api/v1/packages/{package_id}/superdocs-reviews/{review_id}/export"
@@ -304,22 +306,228 @@ def test_prompt_injection_in_document_does_not_override_instruction(
         assert chat_message.startswith("TRUSTED WORKFLOW INSTRUCTION")
     finally:
         app.dependency_overrides.clear()
-
-
-def test_duplicate_superdocs_review_rejected(uploads_dir: Path) -> None:
-    package_id, run_id, finding_id, _ = _seed_finding_with_document(uploads_dir)
+def test_concurrent_superdocs_review_requests_are_idempotent(
+    uploads_dir: Path,
+) -> None:
+    package_id, run_id, finding_id, _ = _seed_finding_with_document(
+        uploads_dir
+    )
     mock_client = _mock_superdocs_client()
-    app.dependency_overrides[get_superdocs_client] = lambda: mock_client
-    app.dependency_overrides[get_document_store] = lambda: DocumentStore(uploads_dir)
+
+    app.dependency_overrides[get_superdocs_client] = (
+        lambda: mock_client
+    )
+    app.dependency_overrides[get_document_store] = (
+        lambda: DocumentStore(uploads_dir)
+    )
+
+    review_url = (
+        f"/api/v1/packages/{package_id}/validation-runs/"
+        f"{run_id}/findings/{finding_id}/superdocs-review"
+    )
+
+    def create_review():
+        return client.post(review_url)
 
     try:
-        first = client.post(
-            f"/api/v1/packages/{package_id}/validation-runs/{run_id}/findings/{finding_id}/superdocs-review"
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(create_review)
+                for _ in range(2)
+            ]
+
+            responses = [
+                future.result()
+                for future in futures
+            ]
+
+        statuses = sorted(
+            response.status_code
+            for response in responses
         )
-        assert first.status_code == 201
-        second = client.post(
-            f"/api/v1/packages/{package_id}/validation-runs/{run_id}/findings/{finding_id}/superdocs-review"
+
+        assert statuses == [201, 201]
+
+        # Only one request may perform the external upload.
+        assert mock_client.upload.call_count == 1
+
+        # Only one persisted review may exist.
+        db = SessionLocal()
+        try:
+            reviews = (
+                db.query(SuperDocsReviewSession)
+                .filter_by(finding_id=finding_id)
+                .all()
+            )
+
+            assert len(reviews) == 1
+        finally:
+            db.close()
+
+    finally:
+        app.dependency_overrides.clear()
+def test_superdocs_review_resumes_failed_review(
+    uploads_dir: Path,
+) -> None:
+    package_id, run_id, finding_id, document_id = _seed_finding_with_document(
+        uploads_dir
+    )
+    mock_client = _mock_superdocs_client()
+
+    db = SessionLocal()
+    try:
+        finding = db.get(Finding, finding_id)
+        assert finding is not None
+
+        document = db.get(PackageDocument, document_id)
+        assert document is not None
+
+        review = SuperDocsReviewSession(
+            package_id=package_id,
+            validation_run_id=run_id,
+            finding_id=finding_id,
+            package_document_id=document_id,
+            status=SuperDocsReviewStatus.FAILED,
+            current_stage="chat_failed",
+            edit_instruction="existing trusted instruction",
+            superdocs_session_id="session-existing",
+            job_id=None,
+            proposed_changes_json=None,
         )
-        assert second.status_code == 409
+        db.add(review)
+        db.commit()
+        review_id = review.id
+    finally:
+        db.close()
+
+    app.dependency_overrides[get_superdocs_client] = lambda: mock_client
+    app.dependency_overrides[get_document_store] = (
+        lambda: DocumentStore(uploads_dir)
+    )
+
+    try:
+        response = client.post(
+            f"/api/v1/packages/{package_id}/validation-runs/"
+            f"{run_id}/findings/{finding_id}/superdocs-review"
+        )
+
+        assert response.status_code == 201, response.text
+
+        body = response.json()
+        assert body["id"] == str(review_id)
+        assert body["status"] == "proposed"
+
+        mock_client.upload.assert_not_called()
+        mock_client.chat.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_superdocs_review_resumes_uploaded_checkpoint(
+    uploads_dir: Path,
+) -> None:
+    package_id, run_id, finding_id, document_id = _seed_finding_with_document(
+        uploads_dir
+    )
+    mock_client = _mock_superdocs_client()
+
+    db = SessionLocal()
+    try:
+        review = SuperDocsReviewSession(
+            package_id=package_id,
+            validation_run_id=run_id,
+            finding_id=finding_id,
+            package_document_id=document_id,
+            status=SuperDocsReviewStatus.UPLOADED,
+            current_stage="uploaded",
+            edit_instruction="existing trusted instruction",
+            superdocs_session_id="session-existing",
+            job_id=None,
+            proposed_changes_json=None,
+        )
+        db.add(review)
+        db.commit()
+        review_id = review.id
+    finally:
+        db.close()
+
+    app.dependency_overrides[get_superdocs_client] = lambda: mock_client
+    app.dependency_overrides[get_document_store] = (
+        lambda: DocumentStore(uploads_dir)
+    )
+
+    try:
+        response = client.post(
+            f"/api/v1/packages/{package_id}/validation-runs/"
+            f"{run_id}/findings/{finding_id}/superdocs-review"
+        )
+
+        assert response.status_code == 201, response.text
+
+        body = response.json()
+        assert body["id"] == str(review_id)
+        assert body["status"] == "proposed"
+
+        mock_client.upload.assert_not_called()
+        mock_client.chat.assert_called_once()
+        assert (
+            mock_client.chat.call_args.kwargs["session_id"]
+            == "session-existing"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_superdocs_review_resumes_creating_checkpoint(
+    uploads_dir: Path,
+) -> None:
+    package_id, run_id, finding_id, document_id = _seed_finding_with_document(
+        uploads_dir
+    )
+    mock_client = _mock_superdocs_client()
+
+    db = SessionLocal()
+    try:
+        review = SuperDocsReviewSession(
+            package_id=package_id,
+            validation_run_id=run_id,
+            finding_id=finding_id,
+            package_document_id=document_id,
+            status=SuperDocsReviewStatus.CREATING,
+            current_stage="uploaded",
+            edit_instruction="existing trusted instruction",
+            superdocs_session_id="session-existing",
+            job_id=None,
+            proposed_changes_json=None,
+        )
+        db.add(review)
+        db.commit()
+        review_id = review.id
+    finally:
+        db.close()
+
+    app.dependency_overrides[get_superdocs_client] = lambda: mock_client
+    app.dependency_overrides[get_document_store] = (
+        lambda: DocumentStore(uploads_dir)
+    )
+
+    try:
+        response = client.post(
+            f"/api/v1/packages/{package_id}/validation-runs/"
+            f"{run_id}/findings/{finding_id}/superdocs-review"
+        )
+
+        assert response.status_code == 201, response.text
+
+        body = response.json()
+        assert body["id"] == str(review_id)
+        assert body["status"] == "proposed"
+
+        mock_client.upload.assert_not_called()
+        mock_client.chat.assert_called_once()
+        assert (
+            mock_client.chat.call_args.kwargs["session_id"]
+            == "session-existing"
+        )
     finally:
         app.dependency_overrides.clear()

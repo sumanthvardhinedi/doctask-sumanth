@@ -38,17 +38,34 @@ Phase 2D Slice 2 — SuperDocs-assisted review/edit/export
 ✅ Rejection path does not export
 ✅ Findings without package_document_id rejected with explicit 400
 ✅ REST:
-  - POST /api/v1/packages/{id}/validation-runs/{run}/findings/{finding}/superdocs-review
-  - POST /api/v1/packages/{id}/superdocs-reviews/{review}/decision
-  - POST /api/v1/packages/{id}/superdocs-reviews/{review}/export
+- POST /api/v1/packages/{id}/validation-runs/{run}/findings/{finding}/superdocs-review
+- POST /api/v1/packages/{id}/superdocs-reviews/{review}/decision
+- POST /api/v1/packages/{id}/superdocs-reviews/{review}/export
 ✅ Tests: test_superdocs_review.py (8 tests)
 ✅ Full suite: 64 passed, 1 warning
 ✅ Assumptions:
-  - Local uploads root via UPLOADS_ROOT (default uploads/); no S3
-  - One SuperDocs review session per finding (unique finding_id)
-  - Finding approval ≠ proposed-change approval
+- Local uploads root via UPLOADS_ROOT (default uploads/); no S3
+- One SuperDocs review session per finding (unique finding_id)
+- Finding approval ≠ proposed-change approval
+
+Phase 2E — Resumability, idempotency, concurrency, prompt-injection hardening, observability
+✅ Complete
+✅ Resumable SuperDocs review workflow with persisted checkpoints
+✅ Failed reviews can resume from persisted workflow state
+✅ Uploaded and creating checkpoints are handled safely
+✅ Concurrent review creation is protected; one request creates the review and the competing request receives 409
+✅ Review creation is idempotency-safe for the same finding
+✅ SuperDocs approve() remains gated behind explicit human approval
+✅ Export remains gated behind APPROVED status
+✅ Rejection path does not call SuperDocs approve() or export()
+✅ Prompt-injection hardening preserved: document content is explicitly treated as untrusted DATA
+✅ Trusted finding metadata remains separated from document content in edit instructions
+✅ Structured logging added around review creation, decisions, failures, and workflow stages
+✅ Tests: test_superdocs_review.py (11 tests)
+✅ Full suite: 67 passed, 1 warning
+✅ git diff --check: clean
 
 Remaining next work:
-- Phase 2E: resumability, idempotency, concurrency, prompt-injection hardening, observability
+
 - Phase 2F: final docs / second-authority proof / cleanup
 - Phase 3: agentic workflow requirements from TASK.md

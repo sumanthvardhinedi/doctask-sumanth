@@ -30,6 +30,8 @@ class FindingResult(StrEnum):
 
 
 class SuperDocsReviewStatus(StrEnum):
+    CREATING = "creating"
+    UPLOADED = "uploaded"
     PROPOSED = "proposed"
     APPROVED = "approved"
     REJECTED = "rejected"

@@ -39,9 +39,14 @@ class SuperDocsReviewSession(Base):
     )
     current_stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
     edit_instruction: Mapped[str] = mapped_column(Text, nullable=False)
-    superdocs_session_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    job_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    proposed_changes_json: Mapped[str] = mapped_column(Text, nullable=False)
+    superdocs_session_id: Mapped[str | None] = mapped_column(
+    String(255), nullable=True)
+    job_id: Mapped[str | None] = mapped_column(
+    String(255), nullable=True
+    )
+    proposed_changes_json: Mapped[str | None] = mapped_column(
+    Text, nullable=True
+    )
     export_result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     human_approved: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     human_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
