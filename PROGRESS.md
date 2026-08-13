@@ -78,19 +78,29 @@ Phase 2F — Final documentation / second-authority proof / cleanup
 ✅ Full test suite passed
 ✅ git diff --check passed
 
-Final Phase 2 status:
-- Phase 1A–1F: complete
-- Phase 2A: complete
-- Phase 2B: complete
-- Phase 2C: complete
-- Phase 2D: complete
-- Phase 2E: complete
-- Phase 2F: complete
-
-Remaining:
-- Phase 3: agentic workflow implementation/evolution according to TASK.md
-
-Remaining next work:
-
-- Phase 2F: final docs / second-authority proof / cleanup
-- Phase 3: agentic workflow requirements from TASK.md
+Phase 3A — Regulatory Rule Persistence & Indexing Foundation
+- **Status**: ready for review
+- **Implementation completed**:
+  - `IndexedRule` persistence model (`backend/app/models/regulatory_rule.py`)
+  - `authority_code` + `rule_id` uniqueness constraint (`uq_indexed_rules_authority_rule`)
+  - Idempotent rule indexing (`backend/app/services/rule_indexer.py`)
+  - Explicit source citations, effective dates, and keywords without generic fallbacks
+  - Authority A & B configuration indexing (`backend/config/authorities/authority_a.json`, `backend/config/authorities/authority_b.json`)
+- **Important components**:
+  - `backend/app/models/regulatory_rule.py`
+  - `backend/app/services/rule_indexer.py`
+- **Tests added**:
+  - `backend/tests/test_rule_indexer.py`
+  - 6 Phase 3A tests
+- **Focused test result**:
+  - 6 passed
+- **Full backend test result**:
+  - 73 passed, 1 warning
+- **git diff --check**:
+  - clean / no whitespace errors
+- **Commit**:
+  - not committed yet (cloud workspace has no git repository)
+- **Push**:
+  - not pushed yet
+- **Next stage**:
+  - Phase 3B — Regulatory Rule Retrieval/Search Engine

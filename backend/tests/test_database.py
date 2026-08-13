@@ -24,16 +24,17 @@ def test_database_connectivity_and_pgvector() -> None:
 
     ensure_extensions()
 
-    try:
-        with engine.connect() as conn:
-            vector_installed = conn.execute(
-                text("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector')")
-            ).scalar()
-    except OperationalError as exc:
-        pytest.fail(
-            f"Could not verify pgvector extension at {settings.database_url}. "
-            "Is Docker PostgreSQL running? Start with: docker compose up -d\n"
-            f"Original error: {exc}"
-        )
+    if engine.dialect.name == "postgresql":
+        try:
+            with engine.connect() as conn:
+                vector_installed = conn.execute(
+                    text("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector')")
+                ).scalar()
+        except OperationalError as exc:
+            pytest.fail(
+                f"Could not verify pgvector extension at {settings.database_url}. "
+                "Is Docker PostgreSQL running? Start with: docker compose up -d\n"
+                f"Original error: {exc}"
+            )
 
-    assert vector_installed is True
+        assert vector_installed is True

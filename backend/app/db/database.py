@@ -15,8 +15,9 @@ class Base(DeclarativeBase):
 
 
 def ensure_extensions() -> None:
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 
 def get_db() -> Generator[Session, None, None]:
