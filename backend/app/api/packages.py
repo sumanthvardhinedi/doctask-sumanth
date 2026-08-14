@@ -38,7 +38,7 @@ from app.workflow.superdocs_review import (
     export_superdocs_review,
     start_superdocs_review,
 )
-from app.workflow.validation_workflow import run_validation
+from app.workflow.agent_workflow import start_or_resume_agent_workflow
 
 
 router = APIRouter(
@@ -169,7 +169,7 @@ def validate_package(
         )
 
     try:
-        validation_run = run_validation(db, package_id)
+        validation_run = start_or_resume_agent_workflow(db, package_id)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

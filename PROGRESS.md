@@ -78,6 +78,10 @@ Phase 2F — Final documentation / second-authority proof / cleanup
 ✅ Full test suite passed
 ✅ git diff --check passed
 
+Phase 3 numbering note (TASK.md agentic plan vs earlier slices)
+
+The slices below labeled 3A indexing / 3B retrieval / 3C indexed-rule wiring were completed before the TASK.md agentic Phase 3 plan was applied. They remain valid work and map to **Phase 3D support** (`load_authority_rules` / deterministic retrieval). Official TASK.md **Phase 3A** is the durable agentic workflow foundation (this next slice). Official 3B/3C are classify_documents / extract_structure and are not those earlier slices.
+
 Phase 3A — Regulatory Rule Persistence & Indexing Foundation
 
 - **Status**: complete
@@ -152,4 +156,65 @@ Phase 3B — Regulatory Rule Retrieval/Search Engine
 - **Push**:
   - pending
 - **Next stage**:
-  - Continue with the next assigned Phase 3 requirement after final review
+  - Official TASK.md Phase 3A — durable agentic workflow foundation
+
+
+Phase 3C — Validation workflow uses indexed regulatory rules (integration slice)
+
+- **Status**: complete as **Phase 3D supporting work** (not official TASK.md extract_structure)
+- **Implementation completed in this slice**:
+  - `run_validation` indexes the package authority before loading rules
+  - Validation uses persisted `IndexedRule` rows via adapter + provider, not in-memory `get_rules_for_authority()`
+  - Empty indexed-rule tables no longer produce a false `COMPLETED` package with zero findings
+  - Provider unit tests restore `retrieve_rules` via `patch(...)` so later tests are not polluted
+- **Important endpoints/components/workflows**:
+  - `backend/app/workflow/validation_workflow.py` (`index_authority_rules` → `get_indexed_rule_definitions` → `validate_package` → persist findings)
+  - `backend/app/services/regulatory_rule_adapter.py`
+  - `backend/app/services/regulatory_rule_provider.py`
+  - `POST /api/v1/packages/{id}/validate`
+- **Tests added / used**:
+  - `backend/tests/test_regulatory_rule_adapter.py`
+  - `backend/tests/test_regulatory_rule_provider.py`
+  - Existing `backend/tests/test_workflow.py` and finding-approval API tests (assertions unchanged)
+- **Focused test result**:
+  - workflow + approval + adapter + provider tests passed
+- **Full backend test result**:
+  - 90 passed, 1 warning (at slice completion)
+- **git diff --check**:
+  - clean
+- **Commit / push**:
+  - included with official Phase 3A commit
+- **Remaining next-stage work**:
+  - Official TASK.md Phase 3A agent foundation
+
+
+Phase 3A — Agentic Workflow Foundation (TASK.md)
+
+- **Status**: complete for this slice
+- **Implementation completed**:
+  - Durable `AgentWorkflow` + `AgentStageCheckpoint` persistence
+  - LangGraph `StateGraph` with real stages only: ingest_package → load_authority_rules → validate_package → generate_findings → human_review
+  - Legal status transitions; invalid transitions raise `ValueError`
+  - Resume skips completed checkpoints and does not create a second validation run
+  - `POST /api/v1/packages/{id}/validate` starts or resumes the agent graph
+  - Token/cost fields exist on checkpoints and stay unused (`null`) because this slice makes no LLM calls
+  - README documents setup, env tokens, and honest limits
+- **Important endpoints/components/workflows**:
+  - `backend/app/workflow/agent_workflow.py`
+  - `backend/app/models/agent_workflow.py`
+  - `POST /api/v1/packages/{id}/validate`
+  - `README.md`
+- **Tests added**:
+  - `backend/tests/test_agent_workflow.py` (8 tests): state creation, stage transitions, checkpoint persistence, resume skip, terminal waiting_for_human, invalid transition, missing package, unknown authority
+- **Focused test result**:
+  - 14 passed (agent + workflow + sample API)
+- **Full backend test result**:
+  - 98 passed, 1 warning
+- **git diff --check**:
+  - clean
+- **Commit**:
+  - pending this slice (then recorded after git)
+- **Push**:
+  - pending this slice
+- **Remaining next-stage work**:
+  - Official Phase 3B — ingest + classify_documents (no fake classification; evidence-based only)

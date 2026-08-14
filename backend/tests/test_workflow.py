@@ -16,6 +16,7 @@ from app.models import (
     ValidationRun,
     ValidationRunStatus,
 )
+from app.services.rule_indexer import index_all_authorities
 from app.workflow.validation_workflow import run_validation
 
 
@@ -26,6 +27,7 @@ def db() -> Session:
 
     try:
         with Session(engine) as session:
+            index_all_authorities(session)
             yield session
     finally:
         Base.metadata.drop_all(bind=engine)
@@ -87,7 +89,10 @@ def test_validation_workflow_persists_run_and_findings(
     )
 
     assert findings
-    assert any(finding.result == "fail" for finding in findings)
+    assert any(
+        finding.result == "fail"
+        for finding in findings
+    )
 
 
 def test_validation_workflow_uses_existing_documents(

@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.enums import FindingResult, PackageStatus, ValidationRunStatus
 from app.models.filing import FilingPackage
 from app.models.validation import ValidationRun
+from app.services.regulatory_rule_provider import get_indexed_rule_definitions
+from app.services.rule_indexer import index_authority_rules
 from app.validator.engine import validate_package
 from app.validator.persistence import map_findings_to_models
-from app.validator.rules import get_rules_for_authority
 from app.validator.types import DocumentInput, PackageInput
 
 
@@ -66,10 +67,18 @@ def run_validation(
 
     try:
         package_input = _build_package_input(package)
-
-        rules = get_rules_for_authority(package.authority_code)
-        findings = validate_package(package_input, rules)
-
+        index_authority_rules(
+            package.authority_code,
+            db,
+        )
+        rules = get_indexed_rule_definitions(
+            db,
+            package.authority_code,
+        )
+        findings = validate_package(
+            package_input,
+            rules,
+        )
         documents_by_filename = {
             document.filename: document.id
             for document in package.documents

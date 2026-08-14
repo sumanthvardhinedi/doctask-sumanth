@@ -37,3 +37,25 @@ class SuperDocsReviewStatus(StrEnum):
     REJECTED = "rejected"
     EXPORTED = "exported"
     FAILED = "failed"
+
+
+class AgentWorkflowStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    WAITING_FOR_HUMAN = "waiting_for_human"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AgentWorkflowStage(StrEnum):
+    INGEST_PACKAGE = "ingest_package"
+    LOAD_AUTHORITY_RULES = "load_authority_rules"
+    VALIDATE_PACKAGE = "validate_package"
+    GENERATE_FINDINGS = "generate_findings"
+    HUMAN_REVIEW = "human_review"
+
+
+class AgentStageCheckpointStatus(StrEnum):
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
