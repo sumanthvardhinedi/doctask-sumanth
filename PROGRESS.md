@@ -65,7 +65,6 @@ Phase 2E — Resumability, idempotency, concurrency, prompt-injection hardening,
 ✅ Full suite: 67 passed, 1 warning
 ✅ git diff --check: clean
 
-
 Phase 2F — Final documentation / second-authority proof / cleanup
 ✅ Complete
 ✅ Verified Authority A and Authority B are selected through configuration/data
@@ -78,143 +77,86 @@ Phase 2F — Final documentation / second-authority proof / cleanup
 ✅ Full test suite passed
 ✅ git diff --check passed
 
-Phase 3 numbering note (TASK.md agentic plan vs earlier slices)
+---
 
-The slices below labeled 3A indexing / 3B retrieval / 3C indexed-rule wiring were completed before the TASK.md agentic Phase 3 plan was applied. They remain valid work and map to **Phase 3D support** (`load_authority_rules` / deterministic retrieval). Official TASK.md **Phase 3A** is the durable agentic workflow foundation (this next slice). Official 3B/3C are classify_documents / extract_structure and are not those earlier slices.
+Phase 3 uses the TASK.md agentic plan:
 
-Phase 3A — Regulatory Rule Persistence & Indexing Foundation
+3A agent foundation → 3B classify → 3C extract_structure → 3D rule retrieval/interpretation → …
+
+Rule indexing, retrieval, and validator wiring were built first. They are supporting work for **3D** (`load_authority_rules`), not official 3A–3C.
+
+---
+
+Phase 3 supporting — Regulatory rule indexing
 
 - **Status**: complete
-- **Implementation completed**:
-  - `IndexedRule` persistence model (`backend/app/models/regulatory_rule.py`)
-  - `authority_code` + `rule_id` uniqueness constraint (`uq_indexed_rules_authority_rule`)
-  - Idempotent rule indexing (`backend/app/services/rule_indexer.py`)
-  - Explicit source citations and keywords required for indexed rules
-  - Effective dates and rule metadata persisted without generic fallbacks
-  - Authority A & B configuration indexing (`backend/config/authorities/authority_a.json`, `backend/config/authorities/authority_b.json`)
-  - Database tables created and verified
-- **Important components**:
+- **Implementation**:
+  - `IndexedRule` model and `uq_indexed_rules_authority_rule`
+  - Idempotent `index_authority_rules` / `index_all_authorities`
+  - Source citations and keywords required
+  - Authority A (8 rules) and Authority B (7 rules) JSON configs indexed
+- **Components**:
   - `backend/app/models/regulatory_rule.py`
   - `backend/app/services/rule_indexer.py`
   - `backend/config/authorities/authority_a.json`
   - `backend/config/authorities/authority_b.json`
-- **Tests**:
-  - `backend/tests/test_rule_indexer.py`
-  - Existing Phase 3A indexing coverage
-- **Verification**:
-  - Authority A indexing: 8 rules
-  - Authority B indexing: 7 rules
-  - Full backend test suite: 83 passed, 1 warning
-  - `git diff --check`: clean
-- **Commit**:
-  - pending final Phase 3 checkpoint commit
-- **Push**:
-  - pending
-- **Next stage**:
-  - Phase 3B — Regulatory Rule Retrieval/Search Engine
+- **Tests**: `backend/tests/test_rule_indexer.py`
+- **Suite at the time**: 83 passed, 1 warning
+- **Commit**: `17696e1` feat: add phase 3a regulatory rule indexing foundation
+- **Push**: origin/main
 
-
-Phase 3B — Regulatory Rule Retrieval/Search Engine
+Phase 3 supporting — Regulatory rule retrieval
 
 - **Status**: complete
-- **Implementation completed**:
-  - Added deterministic rule retrieval service
-  - Retrieval is strictly scoped by `authority_code`
-  - Optional category filtering
-  - Optional rule-type filtering
-  - Metadata/description query matching
-  - Deterministic ordering by category and rule ID
-  - Configurable result limit
-  - Non-positive limits return an empty result
-  - Unknown authorities return an empty result
-  - Indexed rule metadata is preserved during retrieval
-- **Important components**:
+- **Implementation**:
+  - Deterministic `retrieve_rules()` scoped by `authority_code`
+  - Optional category, rule_type, metadata query, limit
+  - Unknown authority returns empty (does not invent rules)
+- **Components**:
   - `backend/app/services/rule_retrieval.py`
   - `backend/tests/test_rule_retrieval.py`
-  - `backend/app/services/rule_indexer.py`
-- **Tests added**:
-  - `backend/tests/test_rule_retrieval.py`
-  - 10 retrieval tests covering:
-    - Authority A retrieval
-    - Authority B retrieval
-    - Authority isolation
-    - Category filtering
-    - Rule-type filtering
-    - Rule metadata query matching
-    - Result limits
-    - Zero/negative limits
-    - Unknown authorities
-    - Metadata preservation
-- **Focused test result**:
-  - 10 passed
-- **Full backend test result**:
-  - 83 passed, 1 warning
-- **git diff --check**:
-  - clean / no whitespace errors
-- **Commit**:
-  - pending final commit
-- **Push**:
-  - pending
-- **Next stage**:
-  - Official TASK.md Phase 3A — durable agentic workflow foundation
+- **Tests added**: 10 retrieval tests
+- **Suite at the time**: 83 passed, 1 warning
+- **Commit**: `693bbdc` feat: add regulatory rule retrieval engine
+- **Push**: origin/main
 
+Phase 3 supporting — Indexed rules in validation
 
-Phase 3C — Validation workflow uses indexed regulatory rules (integration slice)
-
-- **Status**: complete as **Phase 3D supporting work** (not official TASK.md extract_structure)
-- **Implementation completed in this slice**:
-  - `run_validation` indexes the package authority before loading rules
-  - Validation uses persisted `IndexedRule` rows via adapter + provider, not in-memory `get_rules_for_authority()`
-  - Empty indexed-rule tables no longer produce a false `COMPLETED` package with zero findings
-  - Provider unit tests restore `retrieve_rules` via `patch(...)` so later tests are not polluted
-- **Important endpoints/components/workflows**:
-  - `backend/app/workflow/validation_workflow.py` (`index_authority_rules` → `get_indexed_rule_definitions` → `validate_package` → persist findings)
+- **Status**: complete
+- **Implementation**:
+  - Adapter `IndexedRule` → `RuleDefinition`
+  - Provider loads indexed definitions for a configured authority
+  - `run_validation` indexes then loads rules (empty index no longer yields a false COMPLETED package)
+- **Components**:
   - `backend/app/services/regulatory_rule_adapter.py`
   - `backend/app/services/regulatory_rule_provider.py`
-  - `POST /api/v1/packages/{id}/validate`
-- **Tests added / used**:
-  - `backend/tests/test_regulatory_rule_adapter.py`
-  - `backend/tests/test_regulatory_rule_provider.py`
-  - Existing `backend/tests/test_workflow.py` and finding-approval API tests (assertions unchanged)
-- **Focused test result**:
-  - workflow + approval + adapter + provider tests passed
-- **Full backend test result**:
-  - 90 passed, 1 warning (at slice completion)
-- **git diff --check**:
-  - clean
-- **Commit / push**:
-  - included with official Phase 3A commit
-- **Remaining next-stage work**:
-  - Official TASK.md Phase 3A agent foundation
+  - `backend/app/workflow/validation_workflow.py`
+- **Tests**: `test_regulatory_rule_adapter.py`, `test_regulatory_rule_provider.py`, existing workflow/API tests
+- **Commit**: included in `8ebad44`
+- **Push**: origin/main
 
+---
 
-Phase 3A — Agentic Workflow Foundation (TASK.md)
+Phase 3A — Agentic workflow foundation
 
-- **Status**: complete for this slice
-- **Implementation completed**:
-  - Durable `AgentWorkflow` + `AgentStageCheckpoint` persistence
-  - LangGraph `StateGraph` with real stages only: ingest_package → load_authority_rules → validate_package → generate_findings → human_review
-  - Legal status transitions; invalid transitions raise `ValueError`
-  - Resume skips completed checkpoints and does not create a second validation run
-  - `POST /api/v1/packages/{id}/validate` starts or resumes the agent graph
-  - Token/cost fields exist on checkpoints and stay unused (`null`) because this slice makes no LLM calls
-  - README documents setup, env tokens, and honest limits
-- **Important endpoints/components/workflows**:
+- **Status**: complete
+- **Implementation**:
+  - Durable `AgentWorkflow` + `AgentStageCheckpoint`
+  - LangGraph graph with real stages only: ingest_package → load_authority_rules → validate_package → generate_findings → human_review
+  - Legal transitions; invalid transitions raise ValueError
+  - Resume skips completed checkpoints; does not create a second ValidationRun
+  - `POST /api/v1/packages/{id}/validate` starts or resumes the graph
+  - Token/cost fields on checkpoints are unused (`null`); no LLM calls in this slice
+  - `README.md` added (setup, env tokens, honest limits)
+- **Components / endpoints**:
   - `backend/app/workflow/agent_workflow.py`
   - `backend/app/models/agent_workflow.py`
   - `POST /api/v1/packages/{id}/validate`
   - `README.md`
-- **Tests added**:
-  - `backend/tests/test_agent_workflow.py` (8 tests): state creation, stage transitions, checkpoint persistence, resume skip, terminal waiting_for_human, invalid transition, missing package, unknown authority
-- **Focused test result**:
-  - 14 passed (agent + workflow + sample API)
-- **Full backend test result**:
-  - 98 passed, 1 warning
-- **git diff --check**:
-  - clean
-- **Commit**:
-  - `8ebad44` feat: add durable LangGraph agent workflow foundation
-- **Push**:
-  - `origin/main`
-- **Remaining next-stage work**:
-  - Official Phase 3B — ingest + classify_documents (no fake classification; evidence-based only)
+- **Tests added**: `backend/tests/test_agent_workflow.py` (8 tests)
+- **Full suite**: 98 passed, 1 warning
+- **git diff --check**: clean
+- **Commit**: `8ebad44` feat: add durable LangGraph agent workflow foundation
+- **Docs**: `5aea0ba` docs: record phase 3A commit hash in PROGRESS.md
+- **Push**: origin/main
+- **Next**: official Phase 3B — classify_documents (evidence-based only; insufficient evidence must not be fabricated)
