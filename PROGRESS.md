@@ -1,162 +1,113 @@
-Phase 1A–1F
-✅ Complete
+# Progress
 
-Phase 2A — Configuration-driven Authority A/B rules
-✅ Complete
-✅ Committed and pushed
+All listed phases below are complete and on `origin/main` unless marked otherwise.
 
-Phase 2B — SuperDocs REST integration
-✅ Complete
-✅ Four required operations implemented/tested
-✅ Committed and pushed
+## Phase 1 — Project and validator foundation
 
-Phase 2C — Filing package REST surface
-✅ Package creation
-✅ Document ingestion
-✅ Package validation
-✅ Validation-run retrieval
-✅ Validation-findings retrieval
-✅ Committed and pushed
+| Slice | What shipped | Commit |
+|------|----------------|--------|
+| 1A | `TASK.md` / project documentation | `021fb07` |
+| 1B | FastAPI app and health endpoint | `a524bb6` |
+| 1C | PostgreSQL + pgvector database foundation | `12026dc` |
+| 1D | Regulatory domain models | `c56515e` |
+| 1E | Deterministic validator | `ffd0346` |
+| 1F | Validation workflow foundation | `7b9799a`, docs `d0cd0b4` |
 
-Phase 2D Slice 1 — Human finding approval API
-✅ Finding approval request/response schemas
-✅ Per-finding approval endpoint
-✅ Approve / reject finding
-✅ Prevent duplicate approval decision
-✅ ApprovalDecision persistence
-✅ Commit: ff7f4ce feat: add per-finding approval API
-✅ Docs: b105349
-✅ Full suite at Slice 1: 56 passed, 1 warning
+## Phase 2 — Reliable backend, approval, SuperDocs
 
-Phase 2D Slice 2 — SuperDocs-assisted review/edit/export
-✅ Complete
-✅ DocumentStore resolves PackageDocument.storage_path under UPLOADS_ROOT (path-escape safe)
-✅ build_edit_instruction from trusted finding metadata; document text wrapped as untrusted DATA
-✅ SuperDocsReviewSession persistence (separate from finding ApprovalDecision)
-✅ Workflow: start_superdocs_review → decide_superdocs_review → export_superdocs_review
-✅ SuperDocs approve() only after human decision; export only after approved status
-✅ Rejection path does not export
-✅ Findings without package_document_id rejected with explicit 400
-✅ REST:
-- POST /api/v1/packages/{id}/validation-runs/{run}/findings/{finding}/superdocs-review
-- POST /api/v1/packages/{id}/superdocs-reviews/{review}/decision
-- POST /api/v1/packages/{id}/superdocs-reviews/{review}/export
-✅ Tests: test_superdocs_review.py (8 tests)
-✅ Full suite: 64 passed, 1 warning
-✅ Assumptions:
-- Local uploads root via UPLOADS_ROOT (default uploads/); no S3
-- One SuperDocs review session per finding (unique finding_id)
-- Finding approval ≠ proposed-change approval
+### 2A — Configuration-driven Authority A/B
 
-Phase 2E — Resumability, idempotency, concurrency, prompt-injection hardening, observability
-✅ Complete
-✅ Resumable SuperDocs review workflow with persisted checkpoints
-✅ Failed reviews can resume from persisted workflow state
-✅ Uploaded and creating checkpoints are handled safely
-✅ Concurrent review creation is protected; one request creates the review and the competing request receives 409
-✅ Review creation is idempotency-safe for the same finding
-✅ SuperDocs approve() remains gated behind explicit human approval
-✅ Export remains gated behind APPROVED status
-✅ Rejection path does not call SuperDocs approve() or export()
-✅ Prompt-injection hardening preserved: document content is explicitly treated as untrusted DATA
-✅ Trusted finding metadata remains separated from document content in edit instructions
-✅ Structured logging added around review creation, decisions, failures, and workflow stages
-✅ Tests: test_superdocs_review.py (11 tests)
-✅ Full suite: 67 passed, 1 warning
-✅ git diff --check: clean
+- Authority rules live in JSON config, not `if authority == …` branches
+- Commit: `94fc3a0` feat: externalize regulatory authority rules
+- Docs: `02ebbba`
 
-Phase 2F — Final documentation / second-authority proof / cleanup
-✅ Complete
-✅ Verified Authority A and Authority B are selected through configuration/data
-✅ No authority-specific validation branches introduced
-✅ Documented REST package/validation/finding/approval/SuperDocs workflow
-✅ Documented SuperDocs resumability, idempotency, concurrency, and prompt-injection protections
-✅ Documented machine-driven approval flow; UI is not required
-✅ Documented known limitations and stubbed external integrations
-✅ Final requirement assessment uses honest PASS / PARTIAL / FAIL statuses
-✅ Full test suite passed
-✅ git diff --check passed
+### 2B — SuperDocs REST (stub-first)
 
----
+- Four operations: upload, chat, approve, export
+- Commit: `207cb28` Implement SuperDocs REST integration
 
-Phase 3 uses the TASK.md agentic plan:
+### 2C — Filing package REST
 
-3A agent foundation → 3B classify → 3C extract_structure → 3D rule retrieval/interpretation → …
+- Package create, document ingest, validate, list runs, list findings
+- Commits: `bd37435`, `3385faf`, `9f55fe2`, `928d9ec`
 
-Rule indexing, retrieval, and validator wiring were built first. They are supporting work for **3D** (`load_authority_rules`), not official 3A–3C.
+### 2D — Human approval and SuperDocs review
 
----
+**Slice 1 — per-finding approval**
 
-Phase 3 supporting — Regulatory rule indexing
+- Approve / reject one finding; duplicate decision returns 409
+- `ApprovalDecision` persistence
+- Commit: `ff7f4ce` feat: add per-finding approval API
+- Docs: `b105349`
+- Suite at the time: 56 passed, 1 warning
 
-- **Status**: complete
-- **Implementation**:
-  - `IndexedRule` model and `uq_indexed_rules_authority_rule`
-  - Idempotent `index_authority_rules` / `index_all_authorities`
-  - Source citations and keywords required
-  - Authority A (8 rules) and Authority B (7 rules) JSON configs indexed
-- **Components**:
-  - `backend/app/models/regulatory_rule.py`
-  - `backend/app/services/rule_indexer.py`
-  - `backend/config/authorities/authority_a.json`
-  - `backend/config/authorities/authority_b.json`
-- **Tests**: `backend/tests/test_rule_indexer.py`
-- **Suite at the time**: 83 passed, 1 warning
-- **Commit**: `17696e1` feat: add phase 3a regulatory rule indexing foundation
-- **Push**: origin/main
+**Slice 2 — SuperDocs-assisted review**
 
-Phase 3 supporting — Regulatory rule retrieval
+- Path-safe `DocumentStore`; edit instruction from trusted finding metadata; document text is untrusted DATA
+- `SuperDocsReviewSession` is separate from finding approval
+- Flow: start → human decision → SuperDocs approve only if approved → export; reject does not export
+- Findings without `package_document_id` return 400
+- REST: `.../findings/{finding}/superdocs-review`, `.../superdocs-reviews/{review}/decision`, `.../export`
+- Assumptions: local `UPLOADS_ROOT`; one SuperDocs session per finding
+- Commit: `0ce2fc7` feat: add SuperDocs-assisted review workflow
+- Suite at the time: 64 passed, 1 warning
 
-- **Status**: complete
-- **Implementation**:
-  - Deterministic `retrieve_rules()` scoped by `authority_code`
-  - Optional category, rule_type, metadata query, limit
-  - Unknown authority returns empty (does not invent rules)
-- **Components**:
-  - `backend/app/services/rule_retrieval.py`
-  - `backend/tests/test_rule_retrieval.py`
-- **Tests added**: 10 retrieval tests
-- **Suite at the time**: 83 passed, 1 warning
-- **Commit**: `693bbdc` feat: add regulatory rule retrieval engine
-- **Push**: origin/main
+### 2E — Resume, concurrency, prompt injection, observability
 
-Phase 3 supporting — Indexed rules in validation
+- SuperDocs checkpoints resume (creating / uploaded / failed)
+- Concurrent create: one winner, other 409; same finding is idempotent
+- Approve/export still gated; document content never becomes instructions
+- Structured logging around review stages
+- Tests: `test_superdocs_review.py` (11 tests)
+- Commit: `4dbb091` feat: complete phase 2e superdocs reliability
+- Suite at the time: 67 passed, 1 warning
 
-- **Status**: complete
-- **Implementation**:
-  - Adapter `IndexedRule` → `RuleDefinition`
-  - Provider loads indexed definitions for a configured authority
-  - `run_validation` indexes then loads rules (empty index no longer yields a false COMPLETED package)
-- **Components**:
-  - `backend/app/services/regulatory_rule_adapter.py`
-  - `backend/app/services/regulatory_rule_provider.py`
-  - `backend/app/workflow/validation_workflow.py`
-- **Tests**: `test_regulatory_rule_adapter.py`, `test_regulatory_rule_provider.py`, existing workflow/API tests
-- **Commit**: included in `8ebad44`
-- **Push**: origin/main
+### 2F — Assessment and cleanup
 
----
+- Authority A/B via configuration only; machine-driven flow (UI not required)
+- Honest PASS / PARTIAL / FAIL in the final assessment
+- Commit: `76f8eb0` docs: complete phase 2f final assessment
 
-Phase 3A — Agentic workflow foundation
+## Phase 3 — Agentic workflow (TASK.md order)
 
-- **Status**: complete
-- **Implementation**:
-  - Durable `AgentWorkflow` + `AgentStageCheckpoint`
-  - LangGraph graph with real stages only: ingest_package → load_authority_rules → validate_package → generate_findings → human_review
-  - Legal transitions; invalid transitions raise ValueError
-  - Resume skips completed checkpoints; does not create a second ValidationRun
-  - `POST /api/v1/packages/{id}/validate` starts or resumes the graph
-  - Token/cost fields on checkpoints are unused (`null`); no LLM calls in this slice
-  - `README.md` added (setup, env tokens, honest limits)
-- **Components / endpoints**:
-  - `backend/app/workflow/agent_workflow.py`
-  - `backend/app/models/agent_workflow.py`
-  - `POST /api/v1/packages/{id}/validate`
-  - `README.md`
-- **Tests added**: `backend/tests/test_agent_workflow.py` (8 tests)
-- **Full suite**: 98 passed, 1 warning
-- **git diff --check**: clean
-- **Commit**: `8ebad44` feat: add durable LangGraph agent workflow foundation
-- **Docs**: `5aea0ba` docs: record phase 3A commit hash in PROGRESS.md
-- **Push**: origin/main
-- **Next**: official Phase 3B — classify_documents (evidence-based only; insufficient evidence must not be fabricated)
+Official order: **3A** agent foundation → **3B** classify → **3C** extract_structure → **3D** rule retrieval/interpretation → …
+
+Indexing, retrieval, and validator wiring were built first. They support **3D** (`load_authority_rules`), not official 3A–3C.
+
+### Supporting — Rule indexing
+
+- `IndexedRule` + unique `(authority_code, rule_id)`
+- Idempotent indexer; citations and keywords required
+- Authority A: 8 rules; Authority B: 7 rules
+- Tests: `backend/tests/test_rule_indexer.py`
+- Suite at the time: 83 passed, 1 warning
+- Commit: `17696e1` feat: add phase 3a regulatory rule indexing foundation
+
+### Supporting — Rule retrieval
+
+- `retrieve_rules()` scoped by authority; optional category, type, query, limit
+- Unknown authority returns empty (does not invent rules)
+- Tests: `backend/tests/test_rule_retrieval.py` (10 tests)
+- Suite at the time: 83 passed, 1 warning
+- Commit: `693bbdc` feat: add regulatory rule retrieval engine
+
+### Supporting — Indexed rules in validation
+
+- Adapter `IndexedRule` → `RuleDefinition`; provider loads indexed definitions
+- `run_validation` indexes then loads rules (empty index no longer yields a false COMPLETED package)
+- Tests: `test_regulatory_rule_adapter.py`, `test_regulatory_rule_provider.py`
+- Commit: included in `8ebad44`
+
+### 3A — Agentic workflow foundation
+
+- Durable `AgentWorkflow` + `AgentStageCheckpoint`
+- LangGraph stages that already do real work: ingest_package → load_authority_rules → validate_package → generate_findings → human_review
+- Invalid transitions raise `ValueError`; resume skips completed checkpoints (no second `ValidationRun`)
+- `POST /api/v1/packages/{id}/validate` starts or resumes the graph
+- Token/cost checkpoint fields exist and stay `null` (no LLM calls in this slice)
+- `README.md`: setup, env tokens, honest limits
+- Tests: `backend/tests/test_agent_workflow.py` (8 tests)
+- Full suite: 98 passed, 1 warning
+- Commit: `8ebad44` feat: add durable LangGraph agent workflow foundation
+- Docs: `5aea0ba`, `cf76750`
+- **Next**: official 3B — `classify_documents` (evidence-based only; do not fabricate labels)
