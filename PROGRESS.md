@@ -213,8 +213,8 @@ Phase 3A — Agentic Workflow Foundation (TASK.md)
 - **git diff --check**:
   - clean
 - **Commit**:
-  - pending this slice (then recorded after git)
+  - `8ebad44` feat: add durable LangGraph agent workflow foundation
 - **Push**:
-  - pending this slice
+  - `origin/main`
 - **Remaining next-stage work**:
   - Official Phase 3B — ingest + classify_documents (no fake classification; evidence-based only)
