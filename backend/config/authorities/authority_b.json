@@ -11,7 +11,9 @@
         "rule_type": "required_document",
         "parameters": {
           "filename": "ES_executive_summary.pdf"
-        }
+        },
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["mandatory", "executive_summary", "required_document"]
       },
       {
         "rule_id": "mandatory.technical_schedule",
@@ -22,7 +24,9 @@
         "rule_type": "required_document",
         "parameters": {
           "filename": "TS_technical_schedule.pdf"
-        }
+        },
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["naming", "filename", "prefix"]
       },
       {
         "rule_id": "naming.prefixed_codes",
@@ -33,7 +37,9 @@
         "rule_type": "filename_pattern",
         "parameters": {
           "pattern": "^[A-Z]{2,3}_[a-z0-9_]+\\.pdf$"
-        }
+        },
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["ordering", "filing_order"]
       },
       {
         "rule_id": "ordering.authority_b",
@@ -47,7 +53,9 @@
             "ES_executive_summary.pdf",
             "TS_technical_schedule.pdf"
           ]
-        }
+        },
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["ordering", "filing_order"]
       },
       {
         "rule_id": "format.pdf_only",
@@ -60,7 +68,9 @@
           "content_types": [
             "application/pdf"
           ]
-        }
+        },
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["format", "pdf", "content_type"]
       },
       {
         "rule_id": "size.max_five_mb",
@@ -72,6 +82,9 @@
         "parameters": {
           "max_bytes": 5242880
         }
+        ,
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["file_size", "maximum", "5_mb"]
       },
       {
         "rule_id": "signature.executive_summary",
@@ -83,6 +96,9 @@
         "parameters": {
           "filename": "ES_executive_summary.pdf"
         }
+        ,
+        "source_citation": "Authority B Published Filing Rules",
+        "keywords": ["signature", "executive_summary"]
       }
     ]
   }

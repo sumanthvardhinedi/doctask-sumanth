@@ -79,28 +79,77 @@ Phase 2F — Final documentation / second-authority proof / cleanup
 ✅ git diff --check passed
 
 Phase 3A — Regulatory Rule Persistence & Indexing Foundation
-- **Status**: ready for review
+
+- **Status**: complete
 - **Implementation completed**:
   - `IndexedRule` persistence model (`backend/app/models/regulatory_rule.py`)
   - `authority_code` + `rule_id` uniqueness constraint (`uq_indexed_rules_authority_rule`)
   - Idempotent rule indexing (`backend/app/services/rule_indexer.py`)
-  - Explicit source citations, effective dates, and keywords without generic fallbacks
+  - Explicit source citations and keywords required for indexed rules
+  - Effective dates and rule metadata persisted without generic fallbacks
   - Authority A & B configuration indexing (`backend/config/authorities/authority_a.json`, `backend/config/authorities/authority_b.json`)
+  - Database tables created and verified
 - **Important components**:
   - `backend/app/models/regulatory_rule.py`
   - `backend/app/services/rule_indexer.py`
-- **Tests added**:
+  - `backend/config/authorities/authority_a.json`
+  - `backend/config/authorities/authority_b.json`
+- **Tests**:
   - `backend/tests/test_rule_indexer.py`
-  - 6 Phase 3A tests
+  - Existing Phase 3A indexing coverage
+- **Verification**:
+  - Authority A indexing: 8 rules
+  - Authority B indexing: 7 rules
+  - Full backend test suite: 83 passed, 1 warning
+  - `git diff --check`: clean
+- **Commit**:
+  - pending final Phase 3 checkpoint commit
+- **Push**:
+  - pending
+- **Next stage**:
+  - Phase 3B — Regulatory Rule Retrieval/Search Engine
+
+
+Phase 3B — Regulatory Rule Retrieval/Search Engine
+
+- **Status**: complete
+- **Implementation completed**:
+  - Added deterministic rule retrieval service
+  - Retrieval is strictly scoped by `authority_code`
+  - Optional category filtering
+  - Optional rule-type filtering
+  - Metadata/description query matching
+  - Deterministic ordering by category and rule ID
+  - Configurable result limit
+  - Non-positive limits return an empty result
+  - Unknown authorities return an empty result
+  - Indexed rule metadata is preserved during retrieval
+- **Important components**:
+  - `backend/app/services/rule_retrieval.py`
+  - `backend/tests/test_rule_retrieval.py`
+  - `backend/app/services/rule_indexer.py`
+- **Tests added**:
+  - `backend/tests/test_rule_retrieval.py`
+  - 10 retrieval tests covering:
+    - Authority A retrieval
+    - Authority B retrieval
+    - Authority isolation
+    - Category filtering
+    - Rule-type filtering
+    - Rule metadata query matching
+    - Result limits
+    - Zero/negative limits
+    - Unknown authorities
+    - Metadata preservation
 - **Focused test result**:
-  - 6 passed
+  - 10 passed
 - **Full backend test result**:
-  - 73 passed, 1 warning
+  - 83 passed, 1 warning
 - **git diff --check**:
   - clean / no whitespace errors
 - **Commit**:
-  - not committed yet (cloud workspace has no git repository)
+  - pending final commit
 - **Push**:
-  - not pushed yet
+  - pending
 - **Next stage**:
-  - Phase 3B — Regulatory Rule Retrieval/Search Engine
+  - Continue with the next assigned Phase 3 requirement after final review

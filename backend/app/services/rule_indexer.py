@@ -30,7 +30,6 @@ def load_raw_authority_config(authority_code: str) -> dict:
 
 def index_authority_rules(authority_code: str, db: Session) -> list[IndexedRule]:
     config = load_raw_authority_config(authority_code)
-    authority_name = config.get("name", authority_code)
     raw_rules = config.get("rules", [])
 
     if not isinstance(raw_rules, list):
@@ -46,13 +45,19 @@ def index_authority_rules(authority_code: str, db: Session) -> list[IndexedRule]
         is_hard_rejection = raw_rule.get("is_hard_rejection", True)
         rule_type = raw_rule["rule_type"]
         parameters = raw_rule.get("parameters", {})
-        source_citation = raw_rule.get(
-            "source_citation", f"{authority_name} Published Filing Rules"
-        )
+        source_citation = raw_rule.get("source_citation")
+        if not source_citation:
+            raise ValueError(
+        f"Missing source_citation for rule {rule_id} "
+        f"in authority {authority_code}"
+    )
         effective_date = raw_rule.get("effective_date")
-        keywords = raw_rule.get(
-            "keywords", [category, rule_type, authority_code]
-        )
+        keywords = raw_rule.get("keywords")
+        if not isinstance(keywords, list) or not keywords:
+            raise ValueError(
+        f"Missing keywords for rule {rule_id} "
+        f"in authority {authority_code}"
+    )
 
         existing_stmt = select(IndexedRule).where(
             IndexedRule.authority_code == authority_code,
@@ -102,9 +107,5 @@ def index_all_authorities(db: Session) -> dict[str, list[IndexedRule]]:
 
     for config_file in sorted(AUTHORITIES_DIR.glob("*.json")):
         authority_code = config_file.stem
-        try:
-            results[authority_code] = index_authority_rules(authority_code, db)
-        except ValueError:
-            continue
-
+        results[authority_code] = index_authority_rules(authority_code, db)
     return results
