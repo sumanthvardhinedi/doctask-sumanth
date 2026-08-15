@@ -124,4 +124,17 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `6dde733` feat: add classify_documents agent stage
 - Push: origin/main
-- **Next**: official 3C — extract_structure (evidence only; no invented signatures/dates)
+- **Next**: done — 3C extract_structure
+
+### 3C — extract_structure
+
+- Persisted metadata and `sort_order` are recorded as observed evidence
+- Signature, declaration, dates, and sections stay `insufficient_evidence` (file bytes are not parsed; facts are not invented)
+- Instruction-like storage paths / content fields cannot create a signature
+- Resume skips a completed extract checkpoint
+- Tests: `backend/tests/test_structure_extraction.py`
+- Full suite: 113 passed, 1 warning
+- git diff --check: clean
+- Commit: pending
+- Push: origin/main
+- **Next**: official 3D — load/retrieve/interpret rules as workflow stages (deterministic lookup remains primary)

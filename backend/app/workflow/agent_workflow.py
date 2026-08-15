@@ -19,6 +19,7 @@ from app.models.filing import FilingPackage
 from app.models.finding import Finding
 from app.models.validation import ValidationRun
 from app.services.document_classifier import classify_documents
+from app.services.structure_extractor import extract_structure
 from app.services.regulatory_rule_provider import get_indexed_rule_definitions
 from app.services.rule_indexer import index_authority_rules
 from app.workflow.validation_workflow import run_validation
@@ -287,6 +288,46 @@ def classify_documents_stage(db: Session, workflow_id: uuid.UUID, package_id: uu
     return output
 
 
+def extract_structure_stage(db: Session, workflow_id: uuid.UUID, package_id: uuid.UUID) -> dict:
+    if _stage_completed(db, workflow_id, AgentWorkflowStage.EXTRACT_STRUCTURE):
+        checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.EXTRACT_STRUCTURE
+        )
+        return checkpoint.output or {}
+
+    _begin_stage(db, workflow_id, AgentWorkflowStage.EXTRACT_STRUCTURE)
+
+    package = db.scalar(
+        select(FilingPackage)
+        .options(selectinload(FilingPackage.documents))
+        .where(FilingPackage.id == package_id)
+    )
+
+    if package is None:
+        _fail_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.EXTRACT_STRUCTURE,
+            f"Filing package {package_id} not found",
+        )
+        raise ValueError(f"Filing package {package_id} not found")
+
+    documents = [
+        {
+            "id": str(document.id),
+            "filename": document.filename,
+            "content_type": document.content_type,
+            "file_size_bytes": document.file_size_bytes,
+            "sort_order": document.sort_order,
+        }
+        for document in package.documents
+    ]
+
+    output = extract_structure(documents=documents)
+    _complete_stage(db, workflow_id, AgentWorkflowStage.EXTRACT_STRUCTURE, output)
+    return output
+
+
 def load_authority_rules_stage(db: Session, workflow_id: uuid.UUID, package_id: uuid.UUID) -> dict:
     if _stage_completed(db, workflow_id, AgentWorkflowStage.LOAD_AUTHORITY_RULES):
         checkpoint = _get_checkpoint(
@@ -480,6 +521,14 @@ def _build_graph(db: Session):
         )
         return state
 
+    def extract(state: AgentGraphState) -> AgentGraphState:
+        extract_structure_stage(
+            db,
+            uuid.UUID(state["workflow_id"]),
+            uuid.UUID(state["package_id"]),
+        )
+        return state
+
     def load_rules(state: AgentGraphState) -> AgentGraphState:
         load_authority_rules_stage(
             db,
@@ -510,13 +559,15 @@ def _build_graph(db: Session):
     graph = StateGraph(AgentGraphState)
     graph.add_node(AgentWorkflowStage.INGEST_PACKAGE, ingest)
     graph.add_node(AgentWorkflowStage.CLASSIFY_DOCUMENTS, classify)
+    graph.add_node(AgentWorkflowStage.EXTRACT_STRUCTURE, extract)
     graph.add_node(AgentWorkflowStage.LOAD_AUTHORITY_RULES, load_rules)
     graph.add_node(AgentWorkflowStage.VALIDATE_PACKAGE, validate)
     graph.add_node(AgentWorkflowStage.GENERATE_FINDINGS, findings)
     graph.add_node(AgentWorkflowStage.HUMAN_REVIEW, human_review)
     graph.add_edge(START, AgentWorkflowStage.INGEST_PACKAGE)
     graph.add_edge(AgentWorkflowStage.INGEST_PACKAGE, AgentWorkflowStage.CLASSIFY_DOCUMENTS)
-    graph.add_edge(AgentWorkflowStage.CLASSIFY_DOCUMENTS, AgentWorkflowStage.LOAD_AUTHORITY_RULES)
+    graph.add_edge(AgentWorkflowStage.CLASSIFY_DOCUMENTS, AgentWorkflowStage.EXTRACT_STRUCTURE)
+    graph.add_edge(AgentWorkflowStage.EXTRACT_STRUCTURE, AgentWorkflowStage.LOAD_AUTHORITY_RULES)
     graph.add_edge(AgentWorkflowStage.LOAD_AUTHORITY_RULES, AgentWorkflowStage.VALIDATE_PACKAGE)
     graph.add_edge(AgentWorkflowStage.VALIDATE_PACKAGE, AgentWorkflowStage.GENERATE_FINDINGS)
     graph.add_edge(AgentWorkflowStage.GENERATE_FINDINGS, AgentWorkflowStage.HUMAN_REVIEW)

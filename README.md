@@ -29,11 +29,13 @@ pytest backend/tests
 
 ### Agent stages actually executed
 
-`ingest_package` → `classify_documents` → `load_authority_rules` → `validate_package` → `generate_findings` → `human_review`
+`ingest_package` → `classify_documents` → `extract_structure` → `load_authority_rules` → `validate_package` → `generate_findings` → `human_review`
 
 `classify_documents` matches filenames to published `required_document` rules. Unknown names are `insufficient_evidence` (not guessed). Document bytes are not read for classification.
 
-Completed stages are checkpointed in Postgres and skipped on resume. Extract, semantic retrieval, interpretation, conflict routing, MCP, and React UI are **not** implemented yet.
+`extract_structure` records persisted metadata and document order. Signature, declaration, dates, and sections are `insufficient_evidence` unless those facts exist on stored metadata. File bytes are not read.
+
+Completed stages are checkpointed in Postgres and skipped on resume. Semantic retrieval, interpretation, conflict routing, MCP, and React UI are **not** implemented yet.
 
 ### REST (machine interface)
 

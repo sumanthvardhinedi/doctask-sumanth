@@ -120,6 +120,7 @@ def test_agent_workflow_records_stage_transitions(db: Session) -> None:
     assert stages == [
         AgentWorkflowStage.INGEST_PACKAGE,
         AgentWorkflowStage.CLASSIFY_DOCUMENTS,
+        AgentWorkflowStage.EXTRACT_STRUCTURE,
         AgentWorkflowStage.LOAD_AUTHORITY_RULES,
         AgentWorkflowStage.VALIDATE_PACKAGE,
         AgentWorkflowStage.GENERATE_FINDINGS,
@@ -141,7 +142,7 @@ def test_agent_workflow_persists_checkpoints_without_invented_tokens(
         .all()
     )
 
-    assert len(checkpoints) == 6
+    assert len(checkpoints) == 7
 
     ingest = next(
         checkpoint
