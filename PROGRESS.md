@@ -122,6 +122,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_document_classification.py`
 - Full suite: 106 passed, 1 warning
 - git diff --check: clean
-- Commit: pending
+- Commit: `6dde733` feat: add classify_documents agent stage
 - Push: origin/main
 - **Next**: official 3C — extract_structure (evidence only; no invented signatures/dates)
