@@ -49,6 +49,7 @@ class AgentWorkflowStatus(StrEnum):
 
 class AgentWorkflowStage(StrEnum):
     INGEST_PACKAGE = "ingest_package"
+    CLASSIFY_DOCUMENTS = "classify_documents"
     LOAD_AUTHORITY_RULES = "load_authority_rules"
     VALIDATE_PACKAGE = "validate_package"
     GENERATE_FINDINGS = "generate_findings"

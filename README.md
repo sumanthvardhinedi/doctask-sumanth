@@ -13,7 +13,7 @@ SUPERDOCS_BASE_URL=https://api.superdocs.app
 SUPERDOCS_API_KEY=your_superdocs_api_key_here
 ```
 
-Tests run without a live SuperDocs or LLM token. Phase 3A does not call a model, so stage checkpoints store `token_count` / `estimated_cost` as unused (`null`).
+Tests run without a live SuperDocs or LLM token. Stage checkpoints store `token_count` / `estimated_cost` as unused (`null`) until a stage actually calls a model.
 
 ```
 pip install -r backend/requirements.txt
@@ -29,9 +29,11 @@ pytest backend/tests
 
 ### Agent stages actually executed
 
-`ingest_package` → `load_authority_rules` → `validate_package` → `generate_findings` → `human_review`
+`ingest_package` → `classify_documents` → `load_authority_rules` → `validate_package` → `generate_findings` → `human_review`
 
-Completed stages are checkpointed in Postgres and skipped on resume. Classify, extract, semantic retrieval, interpretation, conflict routing, MCP, and React UI are **not** implemented yet.
+`classify_documents` matches filenames to published `required_document` rules. Unknown names are `insufficient_evidence` (not guessed). Document bytes are not read for classification.
+
+Completed stages are checkpointed in Postgres and skipped on resume. Extract, semantic retrieval, interpretation, conflict routing, MCP, and React UI are **not** implemented yet.
 
 ### REST (machine interface)
 

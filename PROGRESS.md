@@ -110,4 +110,18 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Full suite: 98 passed, 1 warning
 - Commit: `8ebad44` feat: add durable LangGraph agent workflow foundation
 - Docs: `5aea0ba`, `cf76750`
-- **Next**: official 3B — `classify_documents` (evidence-based only; do not fabricate labels)
+- **Next**: done — 3B classify_documents
+
+### 3B — classify_documents
+
+- Config-driven filename match to `required_document` rules; no authority `if` branches
+- Unknown filenames: `insufficient_evidence` (never a fabricated role)
+- Document bytes are not read; instruction-like storage paths cannot change the role
+- Stage sits after ingest; resume skips a completed classify checkpoint
+- Validation still runs for unknown files so findings/approval APIs keep working
+- Tests: `backend/tests/test_document_classification.py`
+- Full suite: 106 passed, 1 warning
+- git diff --check: clean
+- Commit: pending
+- Push: origin/main
+- **Next**: official 3C — extract_structure (evidence only; no invented signatures/dates)

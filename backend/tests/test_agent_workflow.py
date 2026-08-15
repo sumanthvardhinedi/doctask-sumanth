@@ -119,6 +119,7 @@ def test_agent_workflow_records_stage_transitions(db: Session) -> None:
 
     assert stages == [
         AgentWorkflowStage.INGEST_PACKAGE,
+        AgentWorkflowStage.CLASSIFY_DOCUMENTS,
         AgentWorkflowStage.LOAD_AUTHORITY_RULES,
         AgentWorkflowStage.VALIDATE_PACKAGE,
         AgentWorkflowStage.GENERATE_FINDINGS,
@@ -140,7 +141,7 @@ def test_agent_workflow_persists_checkpoints_without_invented_tokens(
         .all()
     )
 
-    assert len(checkpoints) == 5
+    assert len(checkpoints) == 6
 
     ingest = next(
         checkpoint
@@ -232,5 +233,5 @@ def test_agent_workflow_unknown_authority_marks_failed(db: Session) -> None:
     workflow = _workflow_for_package(db, package_id)
 
     assert workflow.status == AgentWorkflowStatus.FAILED
-    assert workflow.current_stage == AgentWorkflowStage.LOAD_AUTHORITY_RULES
+    assert workflow.current_stage == AgentWorkflowStage.CLASSIFY_DOCUMENTS
     assert workflow.error is not None
