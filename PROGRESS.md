@@ -135,6 +135,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_structure_extraction.py`
 - Full suite: 113 passed, 1 warning
 - git diff --check: clean
-- Commit: pending
+- Commit: `b811aa3` feat: add extract_structure agent stage
 - Push: origin/main
 - **Next**: official 3D — load/retrieve/interpret rules as workflow stages (deterministic lookup remains primary)
