@@ -82,3 +82,4 @@ Completed stages are checkpointed in Postgres and skipped on resume. `human_revi
 - SuperDocs is stub-first unless a real `SUPERDOCS_API_KEY` is configured locally
 - Document bytes are untrusted DATA, never workflow instructions
 - Do not treat unused token fields as measured model usage
+- Honest requirement grades are in [`ASSESSMENT.md`](ASSESSMENT.md) (**overall PARTIAL**). Do not treat this README as a claim that every TASK.md category is fully validated from file bytes.

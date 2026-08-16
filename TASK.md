@@ -158,10 +158,10 @@ The system must **never**:
 | Authorities for development | Synthetic Authority A and Authority B | Approved |
 | SuperDocs integration | Stub-first; live API later | Approved |
 | Branch strategy | `main` only for now | Approved |
-| Agent framework | LangGraph preferred (checkpoint/resume) | Proposed — pending later architecture approval |
-| Rule representation | YAML/JSON authority packs consumed by generic engine | Proposed |
-| Validation approach | Deterministic engine primary; LLM assist bounded | Proposed |
-| Machine interface | REST + MCP | Proposed |
+| Agent framework | LangGraph preferred (checkpoint/resume) | Approved — graph in LangGraph; durable resume via Postgres checkpoints |
+| Rule representation | YAML/JSON authority packs consumed by generic engine | Approved — JSON packs |
+| Validation approach | Deterministic engine primary; LLM assist bounded | Approved — deterministic only; no LLM calls |
+| Machine interface | REST + MCP | Approved |
 
 ---
 
@@ -180,4 +180,5 @@ The system must **never**:
 |------|---------|
 | `TASK.md` | Objective, requirements, architecture, constraints, DoD, must-never, decisions |
 | `PROGRESS.md` | Completed / current / next work, assumptions, issues, tests, Git checkpoints |
-| `README.md` | Setup and usage (create later; claim only implemented behavior) |
+| `README.md` | Setup and usage (claim only implemented behavior) |
+| `ASSESSMENT.md` | Honest PASS / PARTIAL / FAIL against TASK.md |

@@ -230,4 +230,12 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `e8d8681` feat: add MCP server for machine-driven filing flow
 - Push: origin/main
-- **Next**: React UI, or honest final assessment
+- **Next**: done — honest final assessment
+
+## Final assessment (2026-08-16)
+
+Recorded in [`ASSESSMENT.md`](ASSESSMENT.md). **Overall: PARTIAL.**
+
+The machine-driven agentic validator (REST + MCP, Authority A/B via JSON, per-item gates, durable resume, no invented tokens/costs) is real and tested. It is not done as a byte-level reading of sections/dates/signatures, does not use pgvector retrieval, has no React UI, and has not been proven on live SuperDocs.
+
+Do not treat README or this file as claiming PASS for the full TASK.md definition of done.
