@@ -219,4 +219,13 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `df7a74a` feat: add agent workflow observability snapshot
 - Push: origin/main
-- **Next**: MCP / React UI, or honest final assessment
+- **Next**: done — MCP machine interface
+
+### 3J — MCP machine interface
+
+- Stdio MCP server (`python -m app.mcp`) wraps existing create/document/validate/findings/approval/SuperDocs/observability operations
+- Per-finding decide remains item-by-item; failures return `ok: false` (never a fabricated success)
+- Tests: `backend/tests/test_mcp.py`
+- Full suite: 147 passed
+- git diff --check: clean
+- **Next**: React UI, or honest final assessment

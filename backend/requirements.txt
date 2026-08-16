@@ -7,3 +7,4 @@ sqlalchemy
 psycopg[binary]
 pgvector
 langgraph
+mcp>=2,<3
