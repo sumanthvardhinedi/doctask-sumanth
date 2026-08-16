@@ -163,6 +163,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_validation_from_structure.py`
 - Full suite: 123 passed, 1 warning
 - git diff --check: clean
-- Commit: pending
+- Commit: `5758a49` feat: feed extracted structure into deterministic validation
 - Push: origin/main
 - **Next**: official 3F — conflict detection and decision routing
