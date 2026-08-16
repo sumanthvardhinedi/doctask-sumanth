@@ -177,4 +177,7 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_conflict_detection.py`
 - Full suite: 129 passed, 1 warning
 - git diff --check: clean
+- Commit: `0b8ace1` feat: add detect_conflicts stage and routing
+- Push: origin/main
 - **Next**: official 3G — human approval gate integrated with agent waiting_for_human
+
