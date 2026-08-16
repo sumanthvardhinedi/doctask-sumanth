@@ -19,6 +19,10 @@ from app.models.filing import FilingPackage
 from app.models.finding import Finding
 from app.models.validation import ValidationRun
 from app.services.conflict_detector import detect_conflicts as detect_requirement_conflicts
+from app.services.human_review_gate import (
+    evaluate_human_review_gate,
+    finding_gate_item,
+)
 from app.services.document_classifier import classify_documents
 from app.services.rule_context import retrieve_rule_context as build_rule_context
 from app.services.rule_interpreter import interpret_rules as interpret_published_rules
@@ -36,13 +40,12 @@ ALLOWED_WORKFLOW_TRANSITIONS: dict[str, set[str]] = {
         AgentWorkflowStatus.FAILED,
     },
     AgentWorkflowStatus.FAILED: {AgentWorkflowStatus.RUNNING},
-    AgentWorkflowStatus.WAITING_FOR_HUMAN: set(),
+    AgentWorkflowStatus.WAITING_FOR_HUMAN: {AgentWorkflowStatus.RUNNING},
     AgentWorkflowStatus.COMPLETED: set(),
 }
 
 _TERMINAL_STATUSES = {
     AgentWorkflowStatus.COMPLETED,
-    AgentWorkflowStatus.WAITING_FOR_HUMAN,
 }
 
 
@@ -74,8 +77,11 @@ def apply_workflow_status(
     workflow.status = target
 
     now = datetime.now(timezone.utc)
-    if target == AgentWorkflowStatus.RUNNING and workflow.started_at is None:
-        workflow.started_at = now
+    if target == AgentWorkflowStatus.RUNNING:
+        if workflow.started_at is None:
+            workflow.started_at = now
+        if current == AgentWorkflowStatus.WAITING_FOR_HUMAN:
+            workflow.completed_at = None
     if target in {
         AgentWorkflowStatus.COMPLETED,
         AgentWorkflowStatus.FAILED,
@@ -644,11 +650,16 @@ def human_review_stage(db: Session, workflow_id: uuid.UUID) -> dict:
         )
         raise ValueError("Validation run is missing; cannot route human review")
 
-    findings = (
-        db.query(Finding)
-        .filter(Finding.validation_run_id == workflow.validation_run_id)
-        .all()
+    findings = db.scalars(
+        select(Finding)
+        .where(Finding.validation_run_id == workflow.validation_run_id)
+        .options(selectinload(Finding.approval_decision))
+        .order_by(Finding.created_at.asc())
+    ).all()
+    conflict_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS
     )
+    conflict_rule_ids: list[str] = []
     requires_review = any(
         finding.result
         in (
@@ -657,29 +668,76 @@ def human_review_stage(db: Session, workflow_id: uuid.UUID) -> dict:
         )
         for finding in findings
     )
-    conflict_checkpoint = _get_checkpoint(
-        db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS
-    )
     if conflict_checkpoint and conflict_checkpoint.output:
         requires_review = requires_review or bool(
             conflict_checkpoint.output.get("requires_human_review")
         )
+        conflict_rule_ids = [
+            str(item.get("rule_id"))
+            for item in list(conflict_checkpoint.output.get("conflicts") or [])
+            if item.get("rule_id")
+        ]
 
-    if requires_review:
-        apply_workflow_status(workflow, AgentWorkflowStatus.WAITING_FOR_HUMAN)
+    gate = evaluate_human_review_gate(
+        findings=[finding_gate_item(finding) for finding in findings],
+        conflict_rule_ids=conflict_rule_ids,
+    )
+
+    if requires_review and not gate["gate_satisfied"]:
         output = {
+            **gate,
             "requires_review": True,
             "status": AgentWorkflowStatus.WAITING_FOR_HUMAN,
+            "gate_satisfied": False,
         }
-    else:
-        apply_workflow_status(workflow, AgentWorkflowStatus.COMPLETED)
-        output = {
-            "requires_review": False,
-            "status": AgentWorkflowStatus.COMPLETED,
-        }
+        _park_human_review(db, workflow_id, output)
+        return output
 
+    apply_workflow_status(workflow, AgentWorkflowStatus.COMPLETED)
+    output = {
+        **gate,
+        "requires_review": bool(requires_review),
+        "status": AgentWorkflowStatus.COMPLETED,
+        "gate_satisfied": True,
+    }
     _complete_stage(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW, output)
     return output
+
+
+def _park_human_review(
+    db: Session,
+    workflow_id: uuid.UUID,
+    output: dict,
+) -> AgentStageCheckpoint:
+    checkpoint = _begin_stage(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW)
+    checkpoint.status = AgentStageCheckpointStatus.WAITING
+    checkpoint.output = output
+    checkpoint.completed_at = None
+    checkpoint.model_provider = None
+    checkpoint.model_operation = None
+    checkpoint.token_count = None
+    checkpoint.estimated_cost = None
+    workflow = _get_workflow(db, workflow_id)
+    apply_workflow_status(workflow, AgentWorkflowStatus.WAITING_FOR_HUMAN)
+    db.commit()
+    return checkpoint
+
+
+def resume_agent_after_human_decision(
+    db: Session,
+    package_id: uuid.UUID,
+    validation_run_id: uuid.UUID,
+) -> None:
+    """Re-enter human_review after a per-finding decision. Skip completed work."""
+
+    workflow = _latest_workflow_for_package(db, package_id)
+    if workflow is None:
+        return
+    if workflow.status != AgentWorkflowStatus.WAITING_FOR_HUMAN:
+        return
+    if workflow.validation_run_id != validation_run_id:
+        return
+    start_or_resume_agent_workflow(db, package_id)
 
 
 def _build_graph(db: Session):

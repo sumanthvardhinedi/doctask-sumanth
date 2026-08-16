@@ -64,3 +64,4 @@ class AgentStageCheckpointStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+    WAITING = "waiting"

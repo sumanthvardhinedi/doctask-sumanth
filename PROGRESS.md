@@ -179,5 +179,15 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `0b8ace1` feat: add detect_conflicts stage and routing
 - Push: origin/main
-- **Next**: official 3G — human approval gate integrated with agent waiting_for_human
+- **Next**: done — 3G human approval gate
 
+### 3G — Human approval gate in the agent
+
+- `human_review` parks as checkpoint status `waiting` while reviewable items lack decisions
+- Existing per-finding approval API is the machine interface; reject one finding without deciding others
+- Conflict-mapped findings are reviewable even when the validator result is PASS
+- Last remaining decision (or `POST .../validate`) resumes the agent; completed stages are skipped
+- Tests: `backend/tests/test_human_review_gate.py`
+- Full suite: 133 passed, 1 warning
+- git diff --check: clean
+- **Next**: official 3H — SuperDocs loop in the agent graph

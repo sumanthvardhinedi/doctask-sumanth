@@ -38,7 +38,10 @@ from app.workflow.superdocs_review import (
     export_superdocs_review,
     start_superdocs_review,
 )
-from app.workflow.agent_workflow import start_or_resume_agent_workflow
+from app.workflow.agent_workflow import (
+    resume_agent_after_human_decision,
+    start_or_resume_agent_workflow,
+)
 
 
 router = APIRouter(
@@ -320,6 +323,7 @@ def approve_finding(
     db.add(decision)
     db.commit()
     db.refresh(decision)
+    resume_agent_after_human_decision(db, package_id, validation_run_id)
 
     return FindingApprovalResponse(
         id=decision.id,

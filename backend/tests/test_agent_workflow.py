@@ -217,7 +217,7 @@ def test_invalid_workflow_transition_is_rejected(db: Session) -> None:
     workflow = _workflow_for_package(db, package.id)
 
     with pytest.raises(ValueError, match="Invalid workflow transition"):
-        apply_workflow_status(workflow, AgentWorkflowStatus.RUNNING)
+        apply_workflow_status(workflow, AgentWorkflowStatus.COMPLETED)
 
 
 def test_agent_workflow_missing_package_fails(db: Session) -> None:

@@ -41,7 +41,7 @@ pytest backend/tests
 
 `detect_conflicts` flags when a published signature/declaration rule cannot be established from extraction, or when a PASS finding has no observed evidence. Missing documents stay FAIL findings, not invented conflicts.
 
-Completed stages are checkpointed in Postgres and skipped on resume. MCP and React UI are **not** implemented yet.
+Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. Resume with `POST .../validate` or the next approval. MCP and React UI are **not** implemented yet.
 
 ### REST (machine interface)
 
