@@ -149,6 +149,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_rule_context.py`
 - Full suite: 119 passed, 1 warning
 - git diff --check: clean
-- Commit: pending
+- Commit: `437f896` feat: add retrieve_rule_context and interpret_rules stages
 - Push: origin/main
 - **Next**: official 3E — connect extracted structure / interpretation to deterministic validation + findings
