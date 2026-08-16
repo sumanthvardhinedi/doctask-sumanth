@@ -205,4 +205,16 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `c1c7668` feat: add SuperDocs review and finalize_export agent stages
 - Push: origin/main
-- **Next**: official 3I — observability
+- **Next**: done — 3I observability
+
+### 3I — Observability
+
+- `GET /api/v1/packages/{id}/agent-workflow` reports stage status, started/completed times, duration, retries, and failures
+- Waiting runs expose `paused_at` / `elapsed_ms`; `total_duration_ms` is set only when the workflow completed or failed
+- Token and cost totals stay `null` unless a checkpoint recorded real usage (no invented SuperDocs/LLM cost)
+- SuperDocs API operations are counted only from persisted review sessions / exports
+- Stage lifecycle is logged (`started` / `completed` / `waiting` / `failed`)
+- Tests: `backend/tests/test_agent_observability.py`
+- Full suite: 143 passed, 1 warning
+- git diff --check: clean
+- **Next**: MCP / React UI, or honest final assessment

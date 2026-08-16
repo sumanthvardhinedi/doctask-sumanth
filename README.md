@@ -13,7 +13,7 @@ SUPERDOCS_BASE_URL=https://api.superdocs.app
 SUPERDOCS_API_KEY=your_superdocs_api_key_here
 ```
 
-Tests run without a live SuperDocs or LLM token. Stage checkpoints store `token_count` / `estimated_cost` as unused (`null`) until a stage actually calls a model.
+Tests run without a live SuperDocs or LLM token. Stage checkpoints store `token_count` / `estimated_cost` as unused (`null`) until a stage actually calls a model. Observability does not invent cost or token totals from that unused state.
 
 ```
 pip install -r backend/requirements.txt
@@ -41,7 +41,7 @@ pytest backend/tests
 
 `detect_conflicts` flags when a published signature/declaration rule cannot be established from extraction, or when a PASS finding has no observed evidence. Missing documents stay FAIL findings, not invented conflicts.
 
-Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. After that gate, `superdocs_review` starts the existing SuperDocs upload/chat loop for approved document-backed findings and waits for per-item SuperDocs decisions. `finalize_export` exports only SuperDocs-approved reviews; a rejected SuperDocs item is not exported and does not block unrelated items. Resume with `POST .../validate` or the next approval/SuperDocs decision. MCP and React UI are **not** implemented yet.
+Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. After that gate, `superdocs_review` starts the existing SuperDocs upload/chat loop for approved document-backed findings and waits for per-item SuperDocs decisions. `finalize_export` exports only SuperDocs-approved reviews; a rejected SuperDocs item is not exported and does not block unrelated items. Resume with `POST .../validate` or the next approval/SuperDocs decision. `GET .../agent-workflow` reports stage status, timing, retries, and SuperDocs operations that were persisted; waiting runs do not report a finished `total_duration_ms`. MCP and React UI are **not** implemented yet.
 
 ### REST (machine interface)
 
@@ -51,6 +51,7 @@ Completed stages are checkpointed in Postgres and skipped on resume. `human_revi
 - `GET /api/v1/packages/{id}/validation-runs`
 - `GET /api/v1/packages/{id}/validation-runs/{run}/findings`
 - `POST /api/v1/packages/{id}/validation-runs/{run}/findings/{finding}/approval`
+- `GET /api/v1/packages/{id}/agent-workflow` — stage status, duration, retries, failures, SuperDocs API operations that actually exist; `token_count` / `estimated_cost` stay `null` unless a stage recorded real usage
 - SuperDocs review/decision/export under `/api/v1/packages/{id}/...`
 
 ## Limits

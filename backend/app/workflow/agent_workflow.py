@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import TypedDict
@@ -7,6 +8,8 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+
+from app.services.agent_observability import duration_ms
 
 from app.models.agent_workflow import AgentStageCheckpoint, AgentWorkflow
 from app.models.enums import (
@@ -45,6 +48,8 @@ from app.services.structure_extractor import extract_structure
 from app.services.regulatory_rule_provider import get_indexed_rule_definitions
 from app.services.rule_indexer import index_authority_rules
 from app.workflow.validation_workflow import run_validation
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_WORKFLOW_TRANSITIONS: dict[str, set[str]] = {
     AgentWorkflowStatus.PENDING: {AgentWorkflowStatus.RUNNING},
@@ -152,6 +157,7 @@ def _begin_stage(
     db.flush()
 
     checkpoint = _get_checkpoint(db, workflow_id, stage)
+    created = checkpoint is None
     if checkpoint is None:
         checkpoint = AgentStageCheckpoint(
             workflow_id=workflow_id,
@@ -163,6 +169,14 @@ def _begin_stage(
     elif checkpoint.started_at is None:
         checkpoint.started_at = _utcnow()
         db.flush()
+
+    if created:
+        logger.info(
+            "agent.stage.started workflow_id=%s stage=%s retry_count=%s",
+            workflow_id,
+            stage,
+            workflow.retry_count,
+        )
 
     return checkpoint
 
@@ -189,6 +203,13 @@ def _complete_stage(
     checkpoint.token_count = None
     checkpoint.estimated_cost = None
     db.commit()
+    logger.info(
+        "agent.stage.%s workflow_id=%s stage=%s duration_ms=%s",
+        "skipped" if skipped else "completed",
+        workflow_id,
+        stage,
+        duration_ms(checkpoint.started_at, checkpoint.completed_at),
+    )
     return checkpoint
 
 
@@ -211,6 +232,13 @@ def _fail_stage(
     workflow.error = error
     apply_workflow_status(workflow, AgentWorkflowStatus.FAILED)
     db.commit()
+    logger.info(
+        "agent.stage.failed workflow_id=%s stage=%s duration_ms=%s error=%s",
+        workflow_id,
+        stage,
+        duration_ms(checkpoint.started_at, checkpoint.completed_at),
+        error,
+    )
 
 
 def _latest_workflow_for_package(
@@ -741,6 +769,12 @@ def _park_stage(
     workflow = _get_workflow(db, workflow_id)
     apply_workflow_status(workflow, AgentWorkflowStatus.WAITING_FOR_HUMAN)
     db.commit()
+    logger.info(
+        "agent.stage.waiting workflow_id=%s stage=%s elapsed_ms=%s",
+        workflow_id,
+        stage,
+        duration_ms(checkpoint.started_at, _utcnow()),
+    )
     return checkpoint
 
 

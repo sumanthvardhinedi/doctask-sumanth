@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_document_store, get_superdocs_client
 from app.api.schemas import (
+    AgentWorkflowObservability,
     DocumentCreateRequest,
     DocumentResponse,
     FindingApprovalRequest,
@@ -20,9 +21,11 @@ from app.api.schemas import (
 )
 from app.db.database import get_db
 from app.integrations.superdocs.client import SuperDocsClient
+from app.models.agent_workflow import AgentWorkflow
 from app.models.filing import FilingPackage, PackageDocument
 from app.models.finding import ApprovalDecision, Finding
 from app.models.validation import ValidationRun
+from app.services.agent_observability import build_agent_observability
 from app.storage.document_store import DocumentStore
 from app.validator.rules import get_rules_for_authority
 # from app.workflow.superdocs_review import (
@@ -193,6 +196,38 @@ def validate_package(
         "started_at": validation_run.started_at,
         "completed_at": validation_run.completed_at,
     }
+
+
+@router.get(
+    "/{package_id}/agent-workflow",
+    response_model=AgentWorkflowObservability,
+)
+def get_agent_workflow_observability(
+    package_id: UUID,
+    db: Session = Depends(get_db),
+) -> AgentWorkflowObservability:
+    package = db.get(FilingPackage, package_id)
+
+    if package is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Filing package not found",
+        )
+
+    workflow = db.scalar(
+        select(AgentWorkflow)
+        .where(AgentWorkflow.package_id == package_id)
+        .order_by(AgentWorkflow.created_at.desc())
+    )
+    if workflow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent workflow not found",
+        )
+
+    return AgentWorkflowObservability.model_validate(
+        build_agent_observability(db, workflow)
+    )
 
 
 @router.get(

@@ -105,3 +105,46 @@ class SuperDocsReviewResponse(BaseModel):
 class SuperDocsReviewDecisionRequest(BaseModel):
     approved: bool
     human_notes: str | None = None
+
+
+class AgentApiOperation(BaseModel):
+    provider: str
+    operation: str
+    count: int
+
+
+class AgentStageObservability(BaseModel):
+    stage: str
+    status: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    duration_ms: int | None
+    elapsed_ms: int | None
+    error: str | None
+    model_provider: str | None
+    model_operation: str | None
+    token_count: int | None
+    estimated_cost: float | None
+
+
+class AgentWorkflowObservability(BaseModel):
+    id: UUID
+    package_id: UUID
+    validation_run_id: UUID | None
+    status: str
+    current_stage: str | None
+    retry_count: int
+    error: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    paused_at: datetime | None
+    elapsed_ms: int | None
+    total_duration_ms: int | None
+    failed_stage_count: int
+    waiting_stage_count: int
+    completed_stage_count: int
+    skipped_stage_count: int
+    token_count: int | None
+    estimated_cost: float | None
+    api_operations: list[AgentApiOperation]
+    stages: list[AgentStageObservability]

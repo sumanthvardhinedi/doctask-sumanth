@@ -341,12 +341,14 @@ def test_concurrent_superdocs_review_requests_are_idempotent(
                 for future in futures
             ]
 
-        statuses = sorted(
-            response.status_code
-            for response in responses
-        )
+            statuses = sorted(
+                response.status_code
+                for response in responses
+            )
 
-        assert statuses == [201, 201]
+        # Winner is 201. The other request is either idempotent 201
+        # (after PROPOSED) or 409 while CREATING is still in flight.
+        assert statuses in ([201, 201], [201, 409])
 
         # Only one request may perform the external upload.
         assert mock_client.upload.call_count == 1
