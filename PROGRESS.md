@@ -192,4 +192,15 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `8340750` feat: resume agent after per-finding human approval
 - Push: origin/main
-- **Next**: official 3H — SuperDocs loop in the agent graph
+- **Next**: done — 3H SuperDocs loop
+
+### 3H — SuperDocs loop in the agent graph
+
+- Graph halts at `human_review` until the finding gate is met; SuperDocs does not run early
+- `superdocs_review` uses existing start/decide/export; approved document-backed findings only
+- Rejecting one SuperDocs review does not export it and does not reject unrelated reviews
+- `finalize_export` exports only SuperDocs-approved sessions; token fields stay unused (`null`)
+- Tests: `backend/tests/test_superdocs_agent_loop.py`
+- Full suite: 138 passed, 1 warning
+- git diff --check: clean
+- **Next**: official 3I — observability

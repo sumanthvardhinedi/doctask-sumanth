@@ -29,7 +29,7 @@ pytest backend/tests
 
 ### Agent stages actually executed
 
-`ingest_package` → `classify_documents` → `extract_structure` → `load_authority_rules` → `retrieve_rule_context` → `interpret_rules` → `validate_package` → `generate_findings` → `detect_conflicts` → `human_review`
+`ingest_package` → `classify_documents` → `extract_structure` → `load_authority_rules` → `retrieve_rule_context` → `interpret_rules` → `validate_package` → `generate_findings` → `detect_conflicts` → `human_review` → `superdocs_review` → `finalize_export`
 
 `classify_documents` matches filenames to published `required_document` rules. Unknown names are `insufficient_evidence` (not guessed). Document bytes are not read for classification.
 
@@ -41,7 +41,7 @@ pytest backend/tests
 
 `detect_conflicts` flags when a published signature/declaration rule cannot be established from extraction, or when a PASS finding has no observed evidence. Missing documents stay FAIL findings, not invented conflicts.
 
-Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. Resume with `POST .../validate` or the next approval. MCP and React UI are **not** implemented yet.
+Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. After that gate, `superdocs_review` starts the existing SuperDocs upload/chat loop for approved document-backed findings and waits for per-item SuperDocs decisions. `finalize_export` exports only SuperDocs-approved reviews; a rejected SuperDocs item is not exported and does not block unrelated items. Resume with `POST .../validate` or the next approval/SuperDocs decision. MCP and React UI are **not** implemented yet.
 
 ### REST (machine interface)
 

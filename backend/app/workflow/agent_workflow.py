@@ -14,14 +14,29 @@ from app.models.enums import (
     AgentWorkflowStage,
     AgentWorkflowStatus,
     FindingResult,
+    PackageStatus,
+    SuperDocsReviewStatus,
 )
 from app.models.filing import FilingPackage
 from app.models.finding import Finding
+from app.models.superdocs_review import SuperDocsReviewSession
 from app.models.validation import ValidationRun
 from app.services.conflict_detector import detect_conflicts as detect_requirement_conflicts
 from app.services.human_review_gate import (
     evaluate_human_review_gate,
     finding_gate_item,
+)
+from app.services.superdocs_loop import (
+    evaluate_superdocs_loop,
+    is_unreadable_document_error,
+)
+from app.integrations.superdocs.client import SuperDocsClient
+from app.storage.document_store import DocumentStore
+from app.workflow.superdocs_review import (
+    SuperDocsReviewAlreadyExists,
+    SuperDocsReviewError,
+    export_superdocs_review,
+    start_superdocs_review,
 )
 from app.services.document_classifier import classify_documents
 from app.services.rule_context import retrieve_rule_context as build_rule_context
@@ -54,6 +69,7 @@ class AgentGraphState(TypedDict):
     workflow_id: str
     validation_run_id: str | None
     error: str | None
+    halt: bool
 
 
 def apply_workflow_status(
@@ -690,26 +706,31 @@ def human_review_stage(db: Session, workflow_id: uuid.UUID) -> dict:
             "status": AgentWorkflowStatus.WAITING_FOR_HUMAN,
             "gate_satisfied": False,
         }
-        _park_human_review(db, workflow_id, output)
+        _park_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.HUMAN_REVIEW,
+            output,
+        )
         return output
 
-    apply_workflow_status(workflow, AgentWorkflowStatus.COMPLETED)
     output = {
         **gate,
         "requires_review": bool(requires_review),
-        "status": AgentWorkflowStatus.COMPLETED,
+        "status": AgentWorkflowStatus.RUNNING,
         "gate_satisfied": True,
     }
     _complete_stage(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW, output)
     return output
 
 
-def _park_human_review(
+def _park_stage(
     db: Session,
     workflow_id: uuid.UUID,
+    stage: AgentWorkflowStage,
     output: dict,
 ) -> AgentStageCheckpoint:
-    checkpoint = _begin_stage(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW)
+    checkpoint = _begin_stage(db, workflow_id, stage)
     checkpoint.status = AgentStageCheckpointStatus.WAITING
     checkpoint.output = output
     checkpoint.completed_at = None
@@ -723,12 +744,227 @@ def _park_human_review(
     return checkpoint
 
 
+def _load_findings_for_run(db: Session, validation_run_id: uuid.UUID) -> list[Finding]:
+    return list(
+        db.scalars(
+            select(Finding)
+            .where(Finding.validation_run_id == validation_run_id)
+            .options(selectinload(Finding.approval_decision))
+            .order_by(Finding.created_at.asc())
+        ).all()
+    )
+
+
+def superdocs_review_stage(
+    db: Session,
+    workflow_id: uuid.UUID,
+    *,
+    superdocs_client: SuperDocsClient | None = None,
+    document_store: DocumentStore | None = None,
+) -> dict:
+    if _stage_completed(db, workflow_id, AgentWorkflowStage.SUPERDOCS_REVIEW):
+        checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.SUPERDOCS_REVIEW
+        )
+        return checkpoint.output or {}
+
+    if not _stage_completed(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW):
+        raise ValueError("Human review gate is unmet; SuperDocs must not run")
+
+    _begin_stage(db, workflow_id, AgentWorkflowStage.SUPERDOCS_REVIEW)
+    workflow = _get_workflow(db, workflow_id)
+    if workflow.validation_run_id is None:
+        _fail_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.SUPERDOCS_REVIEW,
+            "Validation run is missing; cannot start SuperDocs review",
+        )
+        raise ValueError("Validation run is missing; cannot start SuperDocs review")
+
+    findings = _load_findings_for_run(db, workflow.validation_run_id)
+    reviews = list(
+        db.scalars(
+            select(SuperDocsReviewSession).where(
+                SuperDocsReviewSession.validation_run_id == workflow.validation_run_id
+            )
+        ).all()
+    )
+    loop = evaluate_superdocs_loop(findings=findings, reviews=reviews)
+    skipped_unreadable: list[dict[str, str]] = []
+
+    if superdocs_client is not None and document_store is not None:
+        start_ids = list(loop["pending_start"]) + list(loop["pending_retry"])
+        for finding_id in start_ids:
+            try:
+                start_superdocs_review(
+                    db,
+                    package_id=workflow.package_id,
+                    validation_run_id=workflow.validation_run_id,
+                    finding_id=uuid.UUID(str(finding_id)),
+                    client=superdocs_client,
+                    document_store=document_store,
+                )
+            except SuperDocsReviewAlreadyExists:
+                continue
+            except SuperDocsReviewError as exc:
+                message = str(exc)
+                if is_unreadable_document_error(message):
+                    skipped_unreadable.append(
+                        {
+                            "finding_id": str(finding_id),
+                            "reason": "unreadable_document",
+                            "evidence": message,
+                        }
+                    )
+                    continue
+                raise
+
+        findings = _load_findings_for_run(db, workflow.validation_run_id)
+        reviews = list(
+            db.scalars(
+                select(SuperDocsReviewSession).where(
+                    SuperDocsReviewSession.validation_run_id
+                    == workflow.validation_run_id
+                )
+            ).all()
+        )
+        loop = evaluate_superdocs_loop(findings=findings, reviews=reviews)
+
+    skipped = list(loop["skipped"]) + skipped_unreadable
+    pending_start = [
+        finding_id
+        for finding_id in list(loop["pending_start"])
+        if finding_id not in {item["finding_id"] for item in skipped_unreadable}
+    ]
+    pending_retry = [
+        finding_id
+        for finding_id in list(loop["pending_retry"])
+        if finding_id not in {item["finding_id"] for item in skipped_unreadable}
+    ]
+    waiting = bool(
+        pending_start or loop["pending_decision"] or pending_retry
+    )
+    output = {
+        **loop,
+        "skipped": skipped,
+        "pending_start": pending_start,
+        "pending_retry": pending_retry,
+        "loop_waiting": waiting,
+        "ready_to_finalize": not waiting,
+        "token_count": None,
+    }
+
+    if waiting:
+        output["status"] = AgentWorkflowStatus.WAITING_FOR_HUMAN
+        _park_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.SUPERDOCS_REVIEW,
+            output,
+        )
+        return output
+
+    output["status"] = AgentWorkflowStatus.RUNNING
+    _complete_stage(db, workflow_id, AgentWorkflowStage.SUPERDOCS_REVIEW, output)
+    return output
+
+
+def finalize_export_stage(
+    db: Session,
+    workflow_id: uuid.UUID,
+    *,
+    superdocs_client: SuperDocsClient | None = None,
+) -> dict:
+    if _stage_completed(db, workflow_id, AgentWorkflowStage.FINALIZE_EXPORT):
+        checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.FINALIZE_EXPORT
+        )
+        return checkpoint.output or {}
+
+    if not _stage_completed(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW):
+        raise ValueError("Human review gate is unmet; export must not run")
+    if not _stage_completed(db, workflow_id, AgentWorkflowStage.SUPERDOCS_REVIEW):
+        raise ValueError("SuperDocs loop is unmet; export must not run")
+
+    _begin_stage(db, workflow_id, AgentWorkflowStage.FINALIZE_EXPORT)
+    workflow = _get_workflow(db, workflow_id)
+    if workflow.validation_run_id is None:
+        _fail_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.FINALIZE_EXPORT,
+            "Validation run is missing; cannot finalize export",
+        )
+        raise ValueError("Validation run is missing; cannot finalize export")
+
+    reviews = list(
+        db.scalars(
+            select(SuperDocsReviewSession).where(
+                SuperDocsReviewSession.validation_run_id == workflow.validation_run_id
+            )
+        ).all()
+    )
+    exported_ids: list[str] = []
+    skipped_rejected: list[str] = []
+    pending_export: list[str] = []
+
+    for review in reviews:
+        if review.status == SuperDocsReviewStatus.REJECTED:
+            skipped_rejected.append(str(review.id))
+            continue
+        if review.status == SuperDocsReviewStatus.EXPORTED:
+            exported_ids.append(str(review.id))
+            continue
+        if review.status != SuperDocsReviewStatus.APPROVED:
+            continue
+        if superdocs_client is None:
+            pending_export.append(str(review.id))
+            continue
+        exported = export_superdocs_review(
+            db,
+            package_id=workflow.package_id,
+            review_id=review.id,
+            client=superdocs_client,
+        )
+        exported_ids.append(str(exported.id))
+
+    output = {
+        "exported_review_ids": exported_ids,
+        "skipped_rejected_review_ids": skipped_rejected,
+        "pending_export_review_ids": pending_export,
+        "token_count": None,
+    }
+
+    if pending_export:
+        output["status"] = AgentWorkflowStatus.WAITING_FOR_HUMAN
+        output["gate_unmet"] = True
+        _park_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.FINALIZE_EXPORT,
+            output,
+        )
+        return output
+
+    package = db.get(FilingPackage, workflow.package_id)
+    if package is not None:
+        package.status = PackageStatus.COMPLETED
+    apply_workflow_status(workflow, AgentWorkflowStatus.COMPLETED)
+    output["status"] = AgentWorkflowStatus.COMPLETED
+    _complete_stage(db, workflow_id, AgentWorkflowStage.FINALIZE_EXPORT, output)
+    return output
+
+
 def resume_agent_after_human_decision(
     db: Session,
     package_id: uuid.UUID,
     validation_run_id: uuid.UUID,
+    *,
+    superdocs_client: SuperDocsClient | None = None,
+    document_store: DocumentStore | None = None,
 ) -> None:
-    """Re-enter human_review after a per-finding decision. Skip completed work."""
+    """Re-enter the agent after a per-finding or SuperDocs decision."""
 
     workflow = _latest_workflow_for_package(db, package_id)
     if workflow is None:
@@ -737,10 +973,29 @@ def resume_agent_after_human_decision(
         return
     if workflow.validation_run_id != validation_run_id:
         return
-    start_or_resume_agent_workflow(db, package_id)
+    start_or_resume_agent_workflow(
+        db,
+        package_id,
+        superdocs_client=superdocs_client,
+        document_store=document_store,
+    )
 
 
-def _build_graph(db: Session):
+def _route_if_waiting(waiting_target: str):
+    def _route(state: AgentGraphState) -> str:
+        if state.get("halt"):
+            return END
+        return waiting_target
+
+    return _route
+
+
+def _build_graph(
+    db: Session,
+    *,
+    superdocs_client: SuperDocsClient | None = None,
+    document_store: DocumentStore | None = None,
+):
     def ingest(state: AgentGraphState) -> AgentGraphState:
         ingest_package_stage(
             db,
@@ -805,8 +1060,34 @@ def _build_graph(db: Session):
         return state
 
     def human_review(state: AgentGraphState) -> AgentGraphState:
-        human_review_stage(db, uuid.UUID(state["workflow_id"]))
-        return state
+        output = human_review_stage(db, uuid.UUID(state["workflow_id"]))
+        return {
+            **state,
+            "halt": output.get("status") == AgentWorkflowStatus.WAITING_FOR_HUMAN,
+        }
+
+    def superdocs(state: AgentGraphState) -> AgentGraphState:
+        output = superdocs_review_stage(
+            db,
+            uuid.UUID(state["workflow_id"]),
+            superdocs_client=superdocs_client,
+            document_store=document_store,
+        )
+        return {
+            **state,
+            "halt": output.get("status") == AgentWorkflowStatus.WAITING_FOR_HUMAN,
+        }
+
+    def finalize(state: AgentGraphState) -> AgentGraphState:
+        output = finalize_export_stage(
+            db,
+            uuid.UUID(state["workflow_id"]),
+            superdocs_client=superdocs_client,
+        )
+        return {
+            **state,
+            "halt": output.get("status") == AgentWorkflowStatus.WAITING_FOR_HUMAN,
+        }
 
     graph = StateGraph(AgentGraphState)
     graph.add_node(AgentWorkflowStage.INGEST_PACKAGE, ingest)
@@ -819,6 +1100,8 @@ def _build_graph(db: Session):
     graph.add_node(AgentWorkflowStage.GENERATE_FINDINGS, findings)
     graph.add_node(AgentWorkflowStage.DETECT_CONFLICTS, conflicts)
     graph.add_node(AgentWorkflowStage.HUMAN_REVIEW, human_review)
+    graph.add_node(AgentWorkflowStage.SUPERDOCS_REVIEW, superdocs)
+    graph.add_node(AgentWorkflowStage.FINALIZE_EXPORT, finalize)
     graph.add_edge(START, AgentWorkflowStage.INGEST_PACKAGE)
     graph.add_edge(AgentWorkflowStage.INGEST_PACKAGE, AgentWorkflowStage.CLASSIFY_DOCUMENTS)
     graph.add_edge(AgentWorkflowStage.CLASSIFY_DOCUMENTS, AgentWorkflowStage.EXTRACT_STRUCTURE)
@@ -829,13 +1112,32 @@ def _build_graph(db: Session):
     graph.add_edge(AgentWorkflowStage.VALIDATE_PACKAGE, AgentWorkflowStage.GENERATE_FINDINGS)
     graph.add_edge(AgentWorkflowStage.GENERATE_FINDINGS, AgentWorkflowStage.DETECT_CONFLICTS)
     graph.add_edge(AgentWorkflowStage.DETECT_CONFLICTS, AgentWorkflowStage.HUMAN_REVIEW)
-    graph.add_edge(AgentWorkflowStage.HUMAN_REVIEW, END)
+    graph.add_conditional_edges(
+        AgentWorkflowStage.HUMAN_REVIEW,
+        _route_if_waiting(AgentWorkflowStage.SUPERDOCS_REVIEW),
+        {
+            AgentWorkflowStage.SUPERDOCS_REVIEW: AgentWorkflowStage.SUPERDOCS_REVIEW,
+            END: END,
+        },
+    )
+    graph.add_conditional_edges(
+        AgentWorkflowStage.SUPERDOCS_REVIEW,
+        _route_if_waiting(AgentWorkflowStage.FINALIZE_EXPORT),
+        {
+            AgentWorkflowStage.FINALIZE_EXPORT: AgentWorkflowStage.FINALIZE_EXPORT,
+            END: END,
+        },
+    )
+    graph.add_edge(AgentWorkflowStage.FINALIZE_EXPORT, END)
     return graph.compile()
 
 
 def start_or_resume_agent_workflow(
     db: Session,
     package_id: uuid.UUID,
+    *,
+    superdocs_client: SuperDocsClient | None = None,
+    document_store: DocumentStore | None = None,
 ) -> ValidationRun:
     """Start or resume the durable agent workflow for a filing package."""
 
@@ -870,7 +1172,11 @@ def start_or_resume_agent_workflow(
     apply_workflow_status(workflow, AgentWorkflowStatus.RUNNING)
     db.commit()
 
-    compiled = _build_graph(db)
+    compiled = _build_graph(
+        db,
+        superdocs_client=superdocs_client,
+        document_store=document_store,
+    )
     compiled.invoke(
         {
             "package_id": str(package_id),
@@ -881,6 +1187,7 @@ def start_or_resume_agent_workflow(
                 else None
             ),
             "error": None,
+            "halt": False,
         }
     )
 

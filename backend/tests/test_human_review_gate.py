@@ -215,10 +215,22 @@ def test_agent_parks_human_review_until_each_item_is_decided(db: Session) -> Non
     db.refresh(workflow)
     db.refresh(checkpoint)
     db.refresh(ingest)
+    human_review = _human_review_checkpoint(db, workflow.id)
+    superdocs = (
+        db.query(AgentStageCheckpoint)
+        .filter(
+            AgentStageCheckpoint.workflow_id == workflow.id,
+            AgentStageCheckpoint.stage == AgentWorkflowStage.SUPERDOCS_REVIEW,
+        )
+        .one()
+    )
 
-    assert workflow.status == AgentWorkflowStatus.COMPLETED
-    assert checkpoint.status == AgentStageCheckpointStatus.COMPLETED
-    assert checkpoint.output["gate_satisfied"] is True
+    assert human_review.status == AgentStageCheckpointStatus.COMPLETED
+    assert human_review.output["gate_satisfied"] is True
+    assert workflow.status == AgentWorkflowStatus.WAITING_FOR_HUMAN
+    assert superdocs.status == AgentStageCheckpointStatus.WAITING
+    assert superdocs.output["pending_start"]
+    assert superdocs.token_count is None
     assert ingest.completed_at == ingest_completed_at
     second = db.get(Finding, second_id)
     assert second is not None

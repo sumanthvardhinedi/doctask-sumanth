@@ -58,6 +58,8 @@ class AgentWorkflowStage(StrEnum):
     GENERATE_FINDINGS = "generate_findings"
     DETECT_CONFLICTS = "detect_conflicts"
     HUMAN_REVIEW = "human_review"
+    SUPERDOCS_REVIEW = "superdocs_review"
+    FINALIZE_EXPORT = "finalize_export"
 
 
 class AgentStageCheckpointStatus(StrEnum):

@@ -162,6 +162,8 @@ def create_document(
 def validate_package(
     package_id: UUID,
     db: Session = Depends(get_db),
+    client: SuperDocsClient = Depends(get_superdocs_client),
+    document_store: DocumentStore = Depends(get_document_store),
 ):
     package = db.get(FilingPackage, package_id)
 
@@ -172,7 +174,12 @@ def validate_package(
         )
 
     try:
-        validation_run = start_or_resume_agent_workflow(db, package_id)
+        validation_run = start_or_resume_agent_workflow(
+            db,
+            package_id,
+            superdocs_client=client,
+            document_store=document_store,
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -283,6 +290,8 @@ def approve_finding(
     finding_id: UUID,
     request: FindingApprovalRequest,
     db: Session = Depends(get_db),
+    client: SuperDocsClient = Depends(get_superdocs_client),
+    document_store: DocumentStore = Depends(get_document_store),
 ) -> FindingApprovalResponse:
     package = db.get(FilingPackage, package_id)
 
@@ -323,7 +332,13 @@ def approve_finding(
     db.add(decision)
     db.commit()
     db.refresh(decision)
-    resume_agent_after_human_decision(db, package_id, validation_run_id)
+    resume_agent_after_human_decision(
+        db,
+        package_id,
+        validation_run_id,
+        superdocs_client=client,
+        document_store=document_store,
+    )
 
     return FindingApprovalResponse(
         id=decision.id,
@@ -386,6 +401,14 @@ def create_superdocs_review(
             detail=detail,
         ) from exc
 
+    resume_agent_after_human_decision(
+        db,
+        package_id,
+        validation_run_id,
+        superdocs_client=client,
+        document_store=document_store,
+    )
+
     return _review_response(review)
 
 
@@ -425,6 +448,13 @@ def decide_superdocs_review_endpoint(
             detail=detail,
         ) from exc
 
+    resume_agent_after_human_decision(
+        db,
+        package_id,
+        review.validation_run_id,
+        superdocs_client=client,
+    )
+
     return _review_response(review)
 
 
@@ -458,6 +488,13 @@ def export_superdocs_review_endpoint(
             status_code=status_code,
             detail=detail,
         ) from exc
+
+    resume_agent_after_human_decision(
+        db,
+        package_id,
+        review.validation_run_id,
+        superdocs_client=client,
+    )
 
     return _review_response(review)
 def decide_superdocs_review_endpoint(
