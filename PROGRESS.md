@@ -151,4 +151,18 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `437f896` feat: add retrieve_rule_context and interpret_rules stages
 - Push: origin/main
-- **Next**: official 3E — connect extracted structure / interpretation to deterministic validation + findings
+- **Next**: done — 3E validation from extracted structure
+
+### 3E — Agentic validation + findings
+
+- `validate_package` consumes `extract_structure` evidence via `package_input_from_extracted_structure`
+- Signature/declaration become validator booleans only when extraction result is `observed`
+- Insufficient extract evidence stays `None` → validator `insufficient_evidence` (never PASS)
+- `generate_findings` records finding results plus published `source_citation` from interpretation
+- Deterministic engine remains the source of truth
+- Tests: `backend/tests/test_validation_from_structure.py`
+- Full suite: 123 passed, 1 warning
+- git diff --check: clean
+- Commit: pending
+- Push: origin/main
+- **Next**: official 3F — conflict detection and decision routing

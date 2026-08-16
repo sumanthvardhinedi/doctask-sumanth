@@ -485,7 +485,17 @@ def validate_package_stage(db: Session, workflow_id: uuid.UUID, package_id: uuid
             return output
 
     try:
-        validation_run = run_validation(db, package_id)
+        extract_checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.EXTRACT_STRUCTURE
+        )
+        extracted_structure = (
+            extract_checkpoint.output if extract_checkpoint is not None else None
+        )
+        validation_run = run_validation(
+            db,
+            package_id,
+            extracted_structure=extracted_structure,
+        )
     except Exception as exc:
         workflow = _get_workflow(db, workflow_id)
         failed_run = db.scalar(
@@ -537,10 +547,31 @@ def generate_findings_stage(db: Session, workflow_id: uuid.UUID) -> dict:
         .filter(Finding.validation_run_id == workflow.validation_run_id)
         .all()
     )
+    interpret_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.INTERPRET_RULES
+    )
+    interpretations = []
+    if interpret_checkpoint and interpret_checkpoint.output:
+        interpretations = list(
+            interpret_checkpoint.output.get("interpretations") or []
+        )
+    citation_by_rule = {
+        item.get("rule_id"): item.get("source_citation")
+        for item in interpretations
+        if item.get("rule_id")
+    }
     output = {
         "validation_run_id": str(workflow.validation_run_id),
         "finding_count": len(findings),
         "finding_ids": [str(finding.id) for finding in findings],
+        "finding_results": [
+            {
+                "rule_id": finding.rule_id,
+                "result": finding.result,
+                "source_citation": citation_by_rule.get(finding.rule_id),
+            }
+            for finding in findings
+        ],
     }
     _complete_stage(db, workflow_id, AgentWorkflowStage.GENERATE_FINDINGS, output)
     return output

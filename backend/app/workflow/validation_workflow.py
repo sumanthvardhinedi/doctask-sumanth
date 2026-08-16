@@ -14,6 +14,49 @@ from app.validator.persistence import map_findings_to_models
 from app.validator.types import DocumentInput, PackageInput
 
 
+def _observed_bool(field: object) -> bool | None:
+    """Only a boolean observed on extracted structure counts. Missing evidence is None."""
+
+    if not isinstance(field, dict):
+        return None
+    if field.get("result") != "observed":
+        return None
+    value = field.get("value")
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def package_input_from_extracted_structure(
+    package: FilingPackage,
+    extracted_structure: dict[str, object],
+) -> PackageInput:
+    """Build validator input from extract_structure evidence. Never invent PASS facts."""
+
+    extracted_documents = list(extracted_structure.get("documents") or [])
+    documents = tuple(
+        DocumentInput(
+            filename=str(item.get("filename") or ""),
+            content_type=str(item.get("content_type") or ""),
+            file_size_bytes=(
+                int(item["file_size_bytes"])
+                if item.get("file_size_bytes") is not None
+                else None
+            ),
+            sort_order=int(item.get("sort_order") or 0),
+            has_signature=_observed_bool(item.get("signature")),
+            declaration_present=_observed_bool(item.get("declaration")),
+        )
+        for item in extracted_documents
+    )
+
+    return PackageInput(
+        authority_code=package.authority_code,
+        name=package.name,
+        documents=documents,
+    )
+
+
 def _build_package_input(package: FilingPackage) -> PackageInput:
     """Convert persisted package data into pure validator input."""
     documents = tuple(
@@ -39,6 +82,8 @@ def _build_package_input(package: FilingPackage) -> PackageInput:
 def run_validation(
     db: Session,
     package_id: uuid.UUID,
+    *,
+    extracted_structure: dict[str, object] | None = None,
 ) -> ValidationRun:
     """Run one deterministic validation workflow."""
 
@@ -66,7 +111,13 @@ def run_validation(
     db.refresh(validation_run)
 
     try:
-        package_input = _build_package_input(package)
+        if extracted_structure is not None:
+            package_input = package_input_from_extracted_structure(
+                package,
+                extracted_structure,
+            )
+        else:
+            package_input = _build_package_input(package)
         index_authority_rules(
             package.authority_code,
             db,

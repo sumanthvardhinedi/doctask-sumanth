@@ -37,6 +37,8 @@ pytest backend/tests
 
 `retrieve_rule_context` uses deterministic indexed-rule lookup (no embeddings). `interpret_rules` restates published description and parameters only.
 
+`validate_package` is the deterministic engine. Extracted signature/declaration values are used only when marked `observed`; missing evidence stays `insufficient_evidence` and is never treated as PASS.
+
 Completed stages are checkpointed in Postgres and skipped on resume. Conflict routing, MCP, and React UI are **not** implemented yet.
 
 ### REST (machine interface)
