@@ -217,4 +217,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_agent_observability.py`
 - Full suite: 143 passed, 1 warning
 - git diff --check: clean
+- Commit: `df7a74a` feat: add agent workflow observability snapshot
+- Push: origin/main
 - **Next**: MCP / React UI, or honest final assessment
