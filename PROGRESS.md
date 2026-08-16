@@ -228,4 +228,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_mcp.py`
 - Full suite: 147 passed
 - git diff --check: clean
+- Commit: `e8d8681` feat: add MCP server for machine-driven filing flow
+- Push: origin/main
 - **Next**: React UI, or honest final assessment
