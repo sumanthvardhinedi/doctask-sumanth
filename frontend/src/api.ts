@@ -68,14 +68,41 @@ export type SuperDocsReview = {
   export_result: unknown;
 };
 
+function formatDetail(detail: unknown): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (item && typeof item === "object" && "msg" in item) {
+          return String((item as { msg: unknown }).msg);
+        }
+        return JSON.stringify(item);
+      })
+      .join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return JSON.stringify(detail);
+  }
+  return String(detail);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      ...init,
+    });
+  } catch {
+    throw new Error(
+      "Cannot reach the API. Keep this UI running, and in another terminal start: python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 (from the backend folder).",
+    );
+  }
   const text = await response.text();
   let body: unknown = null;
   if (text) {
@@ -86,9 +113,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
   }
   if (!response.ok) {
+    const proxyDown =
+      response.status >= 500 &&
+      (typeof text === "string" &&
+        (text.includes("ECONNREFUSED") ||
+          text.includes("proxy error") ||
+          text.includes("502")));
+    if (proxyDown || response.status === 502) {
+      throw new Error(
+        "The API is not running on port 8000. In another terminal, from backend/: python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+      );
+    }
     const detail =
       typeof body === "object" && body !== null && "detail" in body
-        ? String((body as { detail: unknown }).detail)
+        ? formatDetail((body as { detail: unknown }).detail)
         : text || response.statusText;
     throw new Error(detail);
   }
@@ -96,6 +134,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  health: () => request<{ status: string }>("/health"),
   listPackages: () => request<PackageSummary[]>("/api/v1/packages"),
   createPackage: (authority_code: string, name: string) =>
     request<PackageSummary>("/api/v1/packages", {

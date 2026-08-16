@@ -104,9 +104,11 @@ button:disabled {
   background: #e4eef8;
 }
 
-.banner.error {
-  background: #f8e4e6;
-  color: #6d1520;
+pre {
+  white-space: pre-wrap;
+  background: #fff;
+  padding: 10px;
+  border-radius: 8px;
 }
 
 .findings {

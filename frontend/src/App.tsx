@@ -28,6 +28,8 @@ export default function App() {
   const [sortOrder, setSortOrder] = useState("1");
   const [notes, setNotes] = useState<Record<string, string>>({});
 
+  const [apiUp, setApiUp] = useState<boolean | null>(null);
+
   async function withError<T>(label: string, work: () => Promise<T>): Promise<T | undefined> {
     setBusy(label);
     setError("");
@@ -63,21 +65,52 @@ export default function App() {
     try {
       const flow = await api.getWorkflow(packageId);
       setWorkflow(flow);
-      if (flow.validation_run_id) {
-        setRunId(flow.validation_run_id);
-        setFindings(await api.listFindings(packageId, flow.validation_run_id));
+      const nextRunId = flow.validation_run_id;
+      if (nextRunId) {
+        setRunId(nextRunId);
+        setFindings(await api.listFindings(packageId, nextRunId));
       } else {
         setFindings([]);
       }
-    } catch {
+    } catch (err) {
       setWorkflow(null);
-      setFindings([]);
-      setRunId("");
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("Agent workflow not found")) {
+        setFindings([]);
+        return;
+      }
+      throw err;
+    }
+  }
+
+  async function pingApi() {
+    try {
+      await api.health();
+      setApiUp(true);
+      setError("");
+      await refreshPackages();
+    } catch (err) {
+      setApiUp(false);
+      setError(err instanceof Error ? err.message : String(err));
     }
   }
 
   useEffect(() => {
-    void withError("load", () => refreshPackages());
+    void pingApi();
+    const timer = window.setInterval(() => {
+      void api
+        .health()
+        .then(async () => {
+          setApiUp((wasUp) => {
+            if (wasUp === false) {
+              void refreshPackages();
+            }
+            return true;
+          });
+        })
+        .catch(() => setApiUp(false));
+    }, 4000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -182,8 +215,24 @@ export default function App() {
         </p>
       </header>
 
-      {error ? <div className="banner error">{error}</div> : null}
-      {busy ? <div className="banner">{busy}…</div> : null}
+      {apiUp === false ? (
+        <div className="banner error">
+          The UI is running, but the API is not. Keep this page open and start
+          the backend in another terminal:
+          <pre>
+            cd backend{"\n"}
+            python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+          </pre>
+          PostgreSQL must be up (`docker compose up -d`). Then click Retry.
+          <div className="row">
+            <button type="button" onClick={() => void pingApi()}>
+              Retry connection
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {apiUp === true && error ? <div className="banner error">{error}</div> : null}
+      {apiUp !== false && busy ? <div className="banner">{busy}…</div> : null}
 
       <div className="grid">
         <section>
