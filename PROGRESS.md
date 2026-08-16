@@ -137,4 +137,18 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `b811aa3` feat: add extract_structure agent stage
 - Push: origin/main
-- **Next**: official 3D — load/retrieve/interpret rules as workflow stages (deterministic lookup remains primary)
+- **Next**: done — 3D rule retrieval and interpretation
+
+### 3D — retrieve_rule_context + interpret_rules
+
+- Deterministic `retrieve_rules()` lookup after load; no pgvector/embeddings added for appearance
+- Focused rule IDs come from classified documents; invented IDs are not added to context
+- Interpretation restates published description + parameters only
+- Missing description → `insufficient_evidence`; extra unpublished requirements are ignored
+- Validator still uses the full indexed rule set
+- Tests: `backend/tests/test_rule_context.py`
+- Full suite: 119 passed, 1 warning
+- git diff --check: clean
+- Commit: pending
+- Push: origin/main
+- **Next**: official 3E — connect extracted structure / interpretation to deterministic validation + findings

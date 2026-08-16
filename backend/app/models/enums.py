@@ -52,6 +52,8 @@ class AgentWorkflowStage(StrEnum):
     CLASSIFY_DOCUMENTS = "classify_documents"
     EXTRACT_STRUCTURE = "extract_structure"
     LOAD_AUTHORITY_RULES = "load_authority_rules"
+    RETRIEVE_RULE_CONTEXT = "retrieve_rule_context"
+    INTERPRET_RULES = "interpret_rules"
     VALIDATE_PACKAGE = "validate_package"
     GENERATE_FINDINGS = "generate_findings"
     HUMAN_REVIEW = "human_review"

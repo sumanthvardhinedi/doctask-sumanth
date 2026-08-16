@@ -122,6 +122,8 @@ def test_agent_workflow_records_stage_transitions(db: Session) -> None:
         AgentWorkflowStage.CLASSIFY_DOCUMENTS,
         AgentWorkflowStage.EXTRACT_STRUCTURE,
         AgentWorkflowStage.LOAD_AUTHORITY_RULES,
+        AgentWorkflowStage.RETRIEVE_RULE_CONTEXT,
+        AgentWorkflowStage.INTERPRET_RULES,
         AgentWorkflowStage.VALIDATE_PACKAGE,
         AgentWorkflowStage.GENERATE_FINDINGS,
         AgentWorkflowStage.HUMAN_REVIEW,
@@ -142,7 +144,7 @@ def test_agent_workflow_persists_checkpoints_without_invented_tokens(
         .all()
     )
 
-    assert len(checkpoints) == 7
+    assert len(checkpoints) == 9
 
     ingest = next(
         checkpoint

@@ -19,6 +19,8 @@ from app.models.filing import FilingPackage
 from app.models.finding import Finding
 from app.models.validation import ValidationRun
 from app.services.document_classifier import classify_documents
+from app.services.rule_context import retrieve_rule_context as build_rule_context
+from app.services.rule_interpreter import interpret_rules as interpret_published_rules
 from app.services.structure_extractor import extract_structure
 from app.services.regulatory_rule_provider import get_indexed_rule_definitions
 from app.services.rule_indexer import index_authority_rules
@@ -368,6 +370,94 @@ def load_authority_rules_stage(db: Session, workflow_id: uuid.UUID, package_id: 
     return output
 
 
+def retrieve_rule_context_stage(
+    db: Session,
+    workflow_id: uuid.UUID,
+    package_id: uuid.UUID,
+) -> dict:
+    if _stage_completed(db, workflow_id, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT):
+        checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT
+        )
+        return checkpoint.output or {}
+
+    _begin_stage(db, workflow_id, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT)
+
+    package = db.get(FilingPackage, package_id)
+    if package is None:
+        _fail_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.RETRIEVE_RULE_CONTEXT,
+            f"Filing package {package_id} not found",
+        )
+        raise ValueError(f"Filing package {package_id} not found")
+
+    classify_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.CLASSIFY_DOCUMENTS
+    )
+    classified_rule_ids: list[str] = []
+    if classify_checkpoint and classify_checkpoint.output:
+        for item in classify_checkpoint.output.get("classifications") or []:
+            rule_id = item.get("rule_id")
+            if rule_id:
+                classified_rule_ids.append(str(rule_id))
+
+    try:
+        output = build_rule_context(
+            db,
+            package.authority_code,
+            classified_rule_ids=classified_rule_ids,
+        )
+    except Exception as exc:
+        _fail_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.RETRIEVE_RULE_CONTEXT,
+            str(exc),
+        )
+        raise
+
+    _complete_stage(db, workflow_id, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT, output)
+    return output
+
+
+def interpret_rules_stage(db: Session, workflow_id: uuid.UUID) -> dict:
+    if _stage_completed(db, workflow_id, AgentWorkflowStage.INTERPRET_RULES):
+        checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.INTERPRET_RULES
+        )
+        return checkpoint.output or {}
+
+    _begin_stage(db, workflow_id, AgentWorkflowStage.INTERPRET_RULES)
+
+    context_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT
+    )
+    if context_checkpoint is None or not context_checkpoint.output:
+        _fail_stage(
+            db,
+            workflow_id,
+            AgentWorkflowStage.INTERPRET_RULES,
+            "Rule context is missing; cannot interpret rules",
+        )
+        raise ValueError("Rule context is missing; cannot interpret rules")
+
+    authority_code = str(context_checkpoint.output.get("authority_code") or "")
+    rules = list(context_checkpoint.output.get("rules") or [])
+    interpretations = interpret_published_rules(
+        authority_code=authority_code,
+        rules=rules,
+    )
+    output = {
+        "authority_code": authority_code,
+        "interpretation_count": len(interpretations),
+        "interpretations": interpretations,
+    }
+    _complete_stage(db, workflow_id, AgentWorkflowStage.INTERPRET_RULES, output)
+    return output
+
+
 def validate_package_stage(db: Session, workflow_id: uuid.UUID, package_id: uuid.UUID) -> dict:
     if _stage_completed(db, workflow_id, AgentWorkflowStage.VALIDATE_PACKAGE):
         checkpoint = _get_checkpoint(
@@ -537,6 +627,18 @@ def _build_graph(db: Session):
         )
         return state
 
+    def retrieve_context(state: AgentGraphState) -> AgentGraphState:
+        retrieve_rule_context_stage(
+            db,
+            uuid.UUID(state["workflow_id"]),
+            uuid.UUID(state["package_id"]),
+        )
+        return state
+
+    def interpret(state: AgentGraphState) -> AgentGraphState:
+        interpret_rules_stage(db, uuid.UUID(state["workflow_id"]))
+        return state
+
     def validate(state: AgentGraphState) -> AgentGraphState:
         output = validate_package_stage(
             db,
@@ -561,6 +663,8 @@ def _build_graph(db: Session):
     graph.add_node(AgentWorkflowStage.CLASSIFY_DOCUMENTS, classify)
     graph.add_node(AgentWorkflowStage.EXTRACT_STRUCTURE, extract)
     graph.add_node(AgentWorkflowStage.LOAD_AUTHORITY_RULES, load_rules)
+    graph.add_node(AgentWorkflowStage.RETRIEVE_RULE_CONTEXT, retrieve_context)
+    graph.add_node(AgentWorkflowStage.INTERPRET_RULES, interpret)
     graph.add_node(AgentWorkflowStage.VALIDATE_PACKAGE, validate)
     graph.add_node(AgentWorkflowStage.GENERATE_FINDINGS, findings)
     graph.add_node(AgentWorkflowStage.HUMAN_REVIEW, human_review)
@@ -568,7 +672,9 @@ def _build_graph(db: Session):
     graph.add_edge(AgentWorkflowStage.INGEST_PACKAGE, AgentWorkflowStage.CLASSIFY_DOCUMENTS)
     graph.add_edge(AgentWorkflowStage.CLASSIFY_DOCUMENTS, AgentWorkflowStage.EXTRACT_STRUCTURE)
     graph.add_edge(AgentWorkflowStage.EXTRACT_STRUCTURE, AgentWorkflowStage.LOAD_AUTHORITY_RULES)
-    graph.add_edge(AgentWorkflowStage.LOAD_AUTHORITY_RULES, AgentWorkflowStage.VALIDATE_PACKAGE)
+    graph.add_edge(AgentWorkflowStage.LOAD_AUTHORITY_RULES, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT)
+    graph.add_edge(AgentWorkflowStage.RETRIEVE_RULE_CONTEXT, AgentWorkflowStage.INTERPRET_RULES)
+    graph.add_edge(AgentWorkflowStage.INTERPRET_RULES, AgentWorkflowStage.VALIDATE_PACKAGE)
     graph.add_edge(AgentWorkflowStage.VALIDATE_PACKAGE, AgentWorkflowStage.GENERATE_FINDINGS)
     graph.add_edge(AgentWorkflowStage.GENERATE_FINDINGS, AgentWorkflowStage.HUMAN_REVIEW)
     graph.add_edge(AgentWorkflowStage.HUMAN_REVIEW, END)
