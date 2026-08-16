@@ -190,4 +190,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_human_review_gate.py`
 - Full suite: 133 passed, 1 warning
 - git diff --check: clean
+- Commit: `8340750` feat: resume agent after per-finding human approval
+- Push: origin/main
 - **Next**: official 3H — SuperDocs loop in the agent graph
