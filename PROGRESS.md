@@ -203,4 +203,6 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - Tests: `backend/tests/test_superdocs_agent_loop.py`
 - Full suite: 138 passed, 1 warning
 - git diff --check: clean
+- Commit: `c1c7668` feat: add SuperDocs review and finalize_export agent stages
+- Push: origin/main
 - **Next**: official 3I — observability
