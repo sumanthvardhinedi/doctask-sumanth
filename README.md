@@ -20,6 +20,18 @@ pip install -r backend/requirements.txt
 pytest backend/tests
 ```
 
+### React review UI (optional)
+
+The UI is **not** required to complete the workflow. With the API running (`uvicorn app.main:app` from `backend/`):
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. Vite proxies `/api` to `http://127.0.0.1:8000`. Create a package, add document metadata, validate, and approve/reject findings one at a time. SuperDocs start/decide/export uses the stub client and will fail honestly if the file is not under `UPLOADS_ROOT`.
+
 ### MCP (machine interface)
 
 From `backend/`:
@@ -63,7 +75,7 @@ That starts a stdio MCP server with tools for create package, add document, vali
 
 `detect_conflicts` flags when a published signature/declaration rule cannot be established from extraction, or when a PASS finding has no observed evidence. Missing documents stay FAIL findings, not invented conflicts.
 
-Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. After that gate, `superdocs_review` starts the existing SuperDocs upload/chat loop for approved document-backed findings and waits for per-item SuperDocs decisions. `finalize_export` exports only SuperDocs-approved reviews; a rejected SuperDocs item is not exported and does not block unrelated items. Resume with `POST .../validate`, the next approval/SuperDocs decision, or the matching MCP tools. `GET .../agent-workflow` and MCP `get_agent_workflow` report stage status, timing, retries, and SuperDocs operations that were persisted; waiting runs do not report a finished `total_duration_ms`. React UI is **not** implemented yet.
+Completed stages are checkpointed in Postgres and skipped on resume. `human_review` waits until each reviewable finding (and conflict-mapped finding) has its own approve/reject decision; rejecting one item does not decide the others. After that gate, `superdocs_review` starts the existing SuperDocs upload/chat loop for approved document-backed findings and waits for per-item SuperDocs decisions. `finalize_export` exports only SuperDocs-approved reviews; a rejected SuperDocs item is not exported and does not block unrelated items. Resume with `POST .../validate`, the next approval/SuperDocs decision, or the matching MCP tools. `GET .../agent-workflow` and MCP `get_agent_workflow` report stage status, timing, retries, and SuperDocs operations that were persisted; waiting runs do not report a finished `total_duration_ms`. An optional React review UI lives in `frontend/` and talks to the same REST API.
 
 ### REST (machine interface)
 
@@ -76,6 +88,7 @@ Completed stages are checkpointed in Postgres and skipped on resume. `human_revi
 - `GET /api/v1/packages/{id}/agent-workflow` — stage status, duration, retries, failures, SuperDocs API operations that actually exist; `token_count` / `estimated_cost` stay `null` unless a stage recorded real usage
 - SuperDocs review/decision/export under `/api/v1/packages/{id}/...`
 - MCP stdio tools (`python -m app.mcp`) for the same machine flow, including per-finding decide
+- `GET /api/v1/packages` and `GET /api/v1/packages/{id}` for the optional React UI
 
 ## Limits
 

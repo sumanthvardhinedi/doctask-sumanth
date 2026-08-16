@@ -6,7 +6,7 @@
 
 This is not a live SuperDocs production filing against a real regulator. Authorities A and B are synthetic JSON packs (an approved project decision).
 
-**Overall: PARTIAL.** The machine-driven agentic validator exists and is tested. It is not a complete reading of every published-rule category from document bytes, it does not use pgvector retrieval, it has no React UI, and it has not been proven against the live SuperDocs API.
+**Overall: PARTIAL.** The machine-driven agentic validator exists and is tested. It is not a complete reading of every published-rule category from document bytes, it does not use pgvector retrieval, and it has not been proven against the live SuperDocs API. An optional React review UI exists and is not required to finish a run.
 
 ---
 
@@ -21,7 +21,7 @@ This is not a live SuperDocs production filing against a real regulator. Authori
 | Resume without repeating completed expensive work | **PASS** | Completed `AgentStageCheckpoint` skipped; SuperDocs resumes CREATING/UPLOADED/FAILED. Not LangGraph’s built-in checkpointer — custom Postgres. |
 | Prompt injection defenses have explicit tests | **PASS** | Document text wrapped as DATA in SuperDocs instructions (`test_prompt_injection_in_document_does_not_override_instruction`). Classifier/extract ignore instruction-like paths. |
 | Concurrent / idempotent behavior tested | **PARTIAL** | SuperDocs concurrent start tested (201/201 or 201/409, one session). Duplicate finding approval 409. Two packages can coexist. **Not** tested: concurrent `POST .../validate` on one package; duplicate package-create rejected as a duplicate. |
-| README claims only what exists | **PASS** | README states React is not implemented, SuperDocs stub-first, tokens unused unless recorded. |
+| README claims only what exists | **PASS** | README states SuperDocs stub-first, tokens unused unless recorded, UI optional. |
 | This assessment uses PASS / PARTIAL / FAIL | **PASS** | This file. |
 
 The project is **not** “done” under TASK.md’s “only when” list, because findings’ source field and concurrency coverage are incomplete.
@@ -56,7 +56,7 @@ The project is **not** “done” under TASK.md’s “only when” list, becaus
 | 1. Visible stages | **PASS** | Real stages only (ingest → classify → extract → load rules → retrieve → interpret → validate → findings → conflicts → human_review → superdocs_review → finalize_export). Path changes: wait for human, skip SuperDocs for rejected/unreadable items, fail the workflow on errors. `GET .../agent-workflow` / MCP `get_agent_workflow`. |
 | 2. Resumability | **PASS** | Durable `agent_workflows` / `agent_stage_checkpoints`. Resume does not create a second `ValidationRun`. |
 | 3. Human approval gate | **PASS** | Findings, conflict-mapped PASS findings, and SuperDocs proposed changes are per-item. “Proposed updates” in this build means SuperDocs proposed edits, not a generic document-pile update register. |
-| 4. Machine-driven flow | **PASS** | REST + MCP stdio (`python -m app.mcp`). UI not required. React is absent (preferred stack only). |
+| 4. Machine-driven flow | **PASS** | REST + MCP stdio (`python -m app.mcp`). UI not required. Optional React UI in `frontend/`. |
 | 5. No bluffing | **PASS** | Unknown files / missing signatures / missing descriptions → `insufficient_evidence`. Token/cost stay `null`. MCP errors return `ok: false`. SuperDocs export is not reported if it did not run. |
 
 ---
@@ -82,7 +82,7 @@ The project is **not** “done” under TASK.md’s “only when” list, becaus
 | Python / FastAPI | **PASS** | |
 | LangGraph | **PASS** | Graph orchestration. Checkpoint/resume is our Postgres model, not LangGraph persistence. |
 | PostgreSQL + pgvector | **PARTIAL** | Postgres is used. `pgvector` extension and an unused `IndexedRule.embedding` column exist. Retrieval is deterministic metadata lookup — **no embeddings**. |
-| React | **FAIL** | No frontend. TASK architecture marks UI optional; machine flow does not need it. |
+| React | **PASS** | Optional review UI in `frontend/`. Same REST API; does not parse document bytes. |
 | SuperDocs REST | **PARTIAL** | Stub-first client and agent loop exist; live credentials/docs review not done. |
 | MCP | **PASS** | Stdio server wrapping the same operations. |
 
@@ -122,8 +122,7 @@ The project is **not** “done” under TASK.md’s “only when” list, becaus
 2. Either parse document bytes for signature/declaration/date/section rules **without inventing**, or keep those categories `insufficient_evidence` and say so in every demo.
 3. Add a date rule type **or** drop “date requirements” from the demo script until a pack contains a real date rule.
 4. Tests for concurrent validation of two packages / same package.
-5. Live SuperDocs against documented credentials (still stub in CI).
-6. React UI only if a human review surface is wanted; not required for DoD machine flow.
+6. Live SuperDocs against documented credentials (still stub in CI).
 7. Semantic retrieval only if it improves rule context; do not add embeddings for appearance.
 
 **Recommended demo claim:** “Metadata-and-config filing gate with a durable agent, per-item human/SuperDocs decisions, REST+MCP, and honest insufficient evidence — not a PDF understanding engine.”
