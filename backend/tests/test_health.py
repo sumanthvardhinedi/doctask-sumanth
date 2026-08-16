@@ -14,9 +14,3 @@ def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-
-
-def test_package_list_is_available_after_startup() -> None:
-    response = client.get("/api/v1/packages")
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)

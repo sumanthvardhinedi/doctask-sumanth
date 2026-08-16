@@ -22,19 +22,10 @@ pytest backend/tests
 
 ### React review UI (optional)
 
-The UI is **not** required to complete the workflow. You need **two terminals**:
-
-1. API (required): PostgreSQL via `docker compose up -d`, then from `backend/`:
+The UI is **not** required to complete the workflow. With the API running (`uvicorn app.main:app` from `backend/`):
 
 ```
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-The API creates database tables on startup if they are missing.
-
-2. UI from `frontend/`:
-
-```
+cd frontend
 npm install
 npm run dev
 ```

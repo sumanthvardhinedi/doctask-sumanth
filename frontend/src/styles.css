@@ -104,11 +104,9 @@ button:disabled {
   background: #e4eef8;
 }
 
-pre {
-  white-space: pre-wrap;
-  background: #fff;
-  padding: 10px;
-  border-radius: 8px;
+.banner.error {
+  background: #f8e4e6;
+  color: #6d1520;
 }
 
 .findings {

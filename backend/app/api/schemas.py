@@ -34,7 +34,7 @@ class DocumentResponse(BaseModel):
     package_id: UUID
     filename: str
     content_type: str
-    file_size_bytes: int | None
+    file_size_bytes: int
     storage_path: str
     sort_order: int
 
