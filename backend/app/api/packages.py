@@ -3,7 +3,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_document_store, get_superdocs_client
 from app.api.schemas import (
@@ -14,7 +14,6 @@ from app.api.schemas import (
     FindingApprovalResponse,
     FindingResponse,
     PackageCreateRequest,
-    PackageDetailResponse,
     PackageResponse,
     SuperDocsReviewDecisionRequest,
     SuperDocsReviewResponse,
@@ -52,38 +51,6 @@ router = APIRouter(
     prefix="/api/v1/packages",
     tags=["packages"],
 )
-
-
-def _package_response(package: FilingPackage) -> PackageResponse:
-    return PackageResponse(
-        id=package.id,
-        authority_code=package.authority_code,
-        name=package.name,
-        status=package.status,
-        document_count=len(package.documents),
-    )
-
-
-def _package_detail(package: FilingPackage) -> PackageDetailResponse:
-    return PackageDetailResponse(
-        id=package.id,
-        authority_code=package.authority_code,
-        name=package.name,
-        status=package.status,
-        document_count=len(package.documents),
-        documents=[
-            DocumentResponse(
-                id=document.id,
-                package_id=document.package_id,
-                filename=document.filename,
-                content_type=document.content_type,
-                file_size_bytes=document.file_size_bytes,
-                storage_path=document.storage_path,
-                sort_order=document.sort_order,
-            )
-            for document in sorted(package.documents, key=lambda item: item.sort_order)
-        ],
-    )
 
 
 def _review_response(review) -> SuperDocsReviewResponse:
@@ -140,41 +107,13 @@ def create_package(
     db.commit()
     db.refresh(package)
 
-    return _package_response(package)
-
-
-@router.get(
-    "",
-    response_model=list[PackageResponse],
-)
-def list_packages(db: Session = Depends(get_db)) -> list[PackageResponse]:
-    packages = db.scalars(
-        select(FilingPackage)
-        .options(selectinload(FilingPackage.documents))
-        .order_by(FilingPackage.created_at.desc())
-    ).all()
-    return [_package_response(package) for package in packages]
-
-
-@router.get(
-    "/{package_id}",
-    response_model=PackageDetailResponse,
-)
-def get_package(
-    package_id: UUID,
-    db: Session = Depends(get_db),
-) -> PackageDetailResponse:
-    package = db.scalar(
-        select(FilingPackage)
-        .options(selectinload(FilingPackage.documents))
-        .where(FilingPackage.id == package_id)
+    return PackageResponse(
+        id=package.id,
+        authority_code=package.authority_code,
+        name=package.name,
+        status=package.status,
+        document_count=0,
     )
-    if package is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Filing package not found",
-        )
-    return _package_detail(package)
 
 
 @router.post(
@@ -355,7 +294,6 @@ def get_validation_findings(
     findings = db.scalars(
         select(Finding)
         .where(Finding.validation_run_id == validation_run_id)
-        .options(selectinload(Finding.approval_decision))
         .order_by(Finding.created_at.asc())
     ).all()
 
@@ -372,16 +310,6 @@ def get_validation_findings(
             evidence=finding.evidence,
             explanation=finding.explanation,
             is_hard_rejection=finding.is_hard_rejection,
-            approved=(
-                None
-                if finding.approval_decision is None
-                else finding.approval_decision.approved
-            ),
-            reviewer_notes=(
-                None
-                if finding.approval_decision is None
-                else finding.approval_decision.reviewer_notes
-            ),
         )
         for finding in findings
     ]

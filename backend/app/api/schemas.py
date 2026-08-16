@@ -39,10 +39,6 @@ class DocumentResponse(BaseModel):
     sort_order: int
 
 
-class PackageDetailResponse(PackageResponse):
-    documents: list[DocumentResponse]
-
-
 class ValidationRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,8 +65,6 @@ class FindingResponse(BaseModel):
     evidence: str | None
     explanation: str
     is_hard_rejection: bool
-    approved: bool | None = None
-    reviewer_notes: str | None = None
 
 
 class FindingApprovalRequest(BaseModel):

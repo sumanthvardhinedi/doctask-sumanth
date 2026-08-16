@@ -15,11 +15,6 @@ class Settings(BaseSettings):
     superdocs_base_url: str = "https://api.superdocs.app"
     superdocs_api_key: str = ""
     uploads_root: str = "uploads"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
 
 settings = Settings()
-
-
-def cors_origin_list() -> list[str]:
-    return [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]

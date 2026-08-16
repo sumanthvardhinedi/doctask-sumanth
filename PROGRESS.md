@@ -239,14 +239,3 @@ Recorded in [`ASSESSMENT.md`](ASSESSMENT.md). **Overall: PARTIAL.**
 The machine-driven agentic validator (REST + MCP, Authority A/B via JSON, per-item gates, durable resume, no invented tokens/costs) is real and tested. It is not done as a byte-level reading of sections/dates/signatures, does not use pgvector retrieval, has no React UI, and has not been proven on live SuperDocs.
 
 Do not treat README or this file as claiming PASS for the full TASK.md definition of done.
-
-### 3K — Optional React review UI
-
-- Vite + React app in `frontend/` proxies to FastAPI; CORS allowed for local Vite
-- `GET /api/v1/packages` and package detail; findings include per-item approval state
-- UI can create packages, add document metadata, validate/resume, decide findings, and drive SuperDocs start/decide/export
-- Does not parse PDFs and does not invent token/cost
-- Backend suite: 149 passed
-- Frontend production build succeeds
-- **Next**: remaining DoD gaps in ASSESSMENT.md
-
