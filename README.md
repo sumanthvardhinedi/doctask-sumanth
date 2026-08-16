@@ -29,7 +29,7 @@ pytest backend/tests
 
 ### Agent stages actually executed
 
-`ingest_package` → `classify_documents` → `extract_structure` → `load_authority_rules` → `retrieve_rule_context` → `interpret_rules` → `validate_package` → `generate_findings` → `human_review`
+`ingest_package` → `classify_documents` → `extract_structure` → `load_authority_rules` → `retrieve_rule_context` → `interpret_rules` → `validate_package` → `generate_findings` → `detect_conflicts` → `human_review`
 
 `classify_documents` matches filenames to published `required_document` rules. Unknown names are `insufficient_evidence` (not guessed). Document bytes are not read for classification.
 
@@ -39,7 +39,9 @@ pytest backend/tests
 
 `validate_package` is the deterministic engine. Extracted signature/declaration values are used only when marked `observed`; missing evidence stays `insufficient_evidence` and is never treated as PASS.
 
-Completed stages are checkpointed in Postgres and skipped on resume. Conflict routing, MCP, and React UI are **not** implemented yet.
+`detect_conflicts` flags when a published signature/declaration rule cannot be established from extraction, or when a PASS finding has no observed evidence. Missing documents stay FAIL findings, not invented conflicts.
+
+Completed stages are checkpointed in Postgres and skipped on resume. MCP and React UI are **not** implemented yet.
 
 ### REST (machine interface)
 

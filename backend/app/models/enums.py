@@ -56,6 +56,7 @@ class AgentWorkflowStage(StrEnum):
     INTERPRET_RULES = "interpret_rules"
     VALIDATE_PACKAGE = "validate_package"
     GENERATE_FINDINGS = "generate_findings"
+    DETECT_CONFLICTS = "detect_conflicts"
     HUMAN_REVIEW = "human_review"
 
 

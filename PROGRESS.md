@@ -165,4 +165,16 @@ Indexing, retrieval, and validator wiring were built first. They support **3D** 
 - git diff --check: clean
 - Commit: `5758a49` feat: feed extracted structure into deterministic validation
 - Push: origin/main
-- **Next**: official 3F — conflict detection and decision routing
+- **Next**: done — 3F conflict detection
+
+### 3F — Conflict detection and routing
+
+- `detect_conflicts` compares interpreted requirements, extracted evidence, and validator findings
+- Signature/declaration required but unobserved → conflict → human_review
+- PASS without observed evidence → conflict (does not let missing evidence become success)
+- Missing document FAIL stays a finding, not a fabricated conflict
+- Other insufficient_evidence findings escalate to human review without inventing a conflict
+- Tests: `backend/tests/test_conflict_detection.py`
+- Full suite: 129 passed, 1 warning
+- git diff --check: clean
+- **Next**: official 3G — human approval gate integrated with agent waiting_for_human

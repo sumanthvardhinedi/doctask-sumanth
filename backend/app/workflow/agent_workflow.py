@@ -18,6 +18,7 @@ from app.models.enums import (
 from app.models.filing import FilingPackage
 from app.models.finding import Finding
 from app.models.validation import ValidationRun
+from app.services.conflict_detector import detect_conflicts as detect_requirement_conflicts
 from app.services.document_classifier import classify_documents
 from app.services.rule_context import retrieve_rule_context as build_rule_context
 from app.services.rule_interpreter import interpret_rules as interpret_published_rules
@@ -577,6 +578,55 @@ def generate_findings_stage(db: Session, workflow_id: uuid.UUID) -> dict:
     return output
 
 
+def detect_conflicts_stage(db: Session, workflow_id: uuid.UUID) -> dict:
+    if _stage_completed(db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS):
+        checkpoint = _get_checkpoint(
+            db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS
+        )
+        return checkpoint.output or {}
+
+    _begin_stage(db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS)
+
+    retrieve_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.RETRIEVE_RULE_CONTEXT
+    )
+    interpret_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.INTERPRET_RULES
+    )
+    extract_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.EXTRACT_STRUCTURE
+    )
+    findings_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.GENERATE_FINDINGS
+    )
+
+    rules = []
+    if retrieve_checkpoint and retrieve_checkpoint.output:
+        rules = list(retrieve_checkpoint.output.get("rules") or [])
+    interpretations = []
+    if interpret_checkpoint and interpret_checkpoint.output:
+        interpretations = list(
+            interpret_checkpoint.output.get("interpretations") or []
+        )
+    extracted_documents = []
+    if extract_checkpoint and extract_checkpoint.output:
+        extracted_documents = list(
+            extract_checkpoint.output.get("documents") or []
+        )
+    findings = []
+    if findings_checkpoint and findings_checkpoint.output:
+        findings = list(findings_checkpoint.output.get("finding_results") or [])
+
+    output = detect_requirement_conflicts(
+        rules=rules,
+        interpretations=interpretations,
+        extracted_documents=extracted_documents,
+        findings=findings,
+    )
+    _complete_stage(db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS, output)
+    return output
+
+
 def human_review_stage(db: Session, workflow_id: uuid.UUID) -> dict:
     if _stage_completed(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW):
         checkpoint = _get_checkpoint(db, workflow_id, AgentWorkflowStage.HUMAN_REVIEW)
@@ -607,6 +657,13 @@ def human_review_stage(db: Session, workflow_id: uuid.UUID) -> dict:
         )
         for finding in findings
     )
+    conflict_checkpoint = _get_checkpoint(
+        db, workflow_id, AgentWorkflowStage.DETECT_CONFLICTS
+    )
+    if conflict_checkpoint and conflict_checkpoint.output:
+        requires_review = requires_review or bool(
+            conflict_checkpoint.output.get("requires_human_review")
+        )
 
     if requires_review:
         apply_workflow_status(workflow, AgentWorkflowStatus.WAITING_FOR_HUMAN)
@@ -685,6 +742,10 @@ def _build_graph(db: Session):
         generate_findings_stage(db, uuid.UUID(state["workflow_id"]))
         return state
 
+    def conflicts(state: AgentGraphState) -> AgentGraphState:
+        detect_conflicts_stage(db, uuid.UUID(state["workflow_id"]))
+        return state
+
     def human_review(state: AgentGraphState) -> AgentGraphState:
         human_review_stage(db, uuid.UUID(state["workflow_id"]))
         return state
@@ -698,6 +759,7 @@ def _build_graph(db: Session):
     graph.add_node(AgentWorkflowStage.INTERPRET_RULES, interpret)
     graph.add_node(AgentWorkflowStage.VALIDATE_PACKAGE, validate)
     graph.add_node(AgentWorkflowStage.GENERATE_FINDINGS, findings)
+    graph.add_node(AgentWorkflowStage.DETECT_CONFLICTS, conflicts)
     graph.add_node(AgentWorkflowStage.HUMAN_REVIEW, human_review)
     graph.add_edge(START, AgentWorkflowStage.INGEST_PACKAGE)
     graph.add_edge(AgentWorkflowStage.INGEST_PACKAGE, AgentWorkflowStage.CLASSIFY_DOCUMENTS)
@@ -707,7 +769,8 @@ def _build_graph(db: Session):
     graph.add_edge(AgentWorkflowStage.RETRIEVE_RULE_CONTEXT, AgentWorkflowStage.INTERPRET_RULES)
     graph.add_edge(AgentWorkflowStage.INTERPRET_RULES, AgentWorkflowStage.VALIDATE_PACKAGE)
     graph.add_edge(AgentWorkflowStage.VALIDATE_PACKAGE, AgentWorkflowStage.GENERATE_FINDINGS)
-    graph.add_edge(AgentWorkflowStage.GENERATE_FINDINGS, AgentWorkflowStage.HUMAN_REVIEW)
+    graph.add_edge(AgentWorkflowStage.GENERATE_FINDINGS, AgentWorkflowStage.DETECT_CONFLICTS)
+    graph.add_edge(AgentWorkflowStage.DETECT_CONFLICTS, AgentWorkflowStage.HUMAN_REVIEW)
     graph.add_edge(AgentWorkflowStage.HUMAN_REVIEW, END)
     return graph.compile()
 
