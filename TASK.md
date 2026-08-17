@@ -182,3 +182,8 @@ The system must **never**:
 | `PROGRESS.md` | Completed / current / next work, assumptions, issues, tests, Git checkpoints |
 | `README.md` | Setup and usage (claim only implemented behavior) |
 | `ASSESSMENT.md` | Honest PASS / PARTIAL / FAIL against TASK.md |
+| `ARCHITECTURE.md` | One-page architecture (Mermaid + rendered images) |
+| `EXPLANATION.md` | One-page: what was built, audience, results, trade-offs, limits |
+| `docs/architecture.png` | Visual architecture one-pager |
+| `docs/architecture-system.png` | Mermaid system diagram render |
+| `docs/architecture-stages.png` | Mermaid stage pipeline render |

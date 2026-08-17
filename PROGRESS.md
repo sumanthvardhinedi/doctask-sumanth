@@ -239,3 +239,5 @@ Recorded in [`ASSESSMENT.md`](ASSESSMENT.md). **Overall: PARTIAL.**
 The machine-driven agentic validator (REST + MCP, Authority A/B via JSON, per-item gates, durable resume, no invented tokens/costs) is real and tested. It is not done as a byte-level reading of sections/dates/signatures, does not use pgvector retrieval, has no React UI, and has not been proven on live SuperDocs.
 
 Do not treat README or this file as claiming PASS for the full TASK.md definition of done.
+
+Evaluator one-pagers: [`ARCHITECTURE.md`](ARCHITECTURE.md) (Mermaid + [`docs/architecture.png`](docs/architecture.png)), [`EXPLANATION.md`](EXPLANATION.md).

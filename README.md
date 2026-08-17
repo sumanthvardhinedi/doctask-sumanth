@@ -83,3 +83,5 @@ Completed stages are checkpointed in Postgres and skipped on resume. `human_revi
 - Document bytes are untrusted DATA, never workflow instructions
 - Do not treat unused token fields as measured model usage
 - Honest requirement grades are in [`ASSESSMENT.md`](ASSESSMENT.md) (**overall PARTIAL**). Do not treat this README as a claim that every TASK.md category is fully validated from file bytes.
+- One-page architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/architecture.png`](docs/architecture.png)
+- One-page project explanation: [`EXPLANATION.md`](EXPLANATION.md)
