@@ -41,6 +41,8 @@ class SuperDocsClient:
         )
 
         response.raise_for_status()
+        print("[SuperDocsClient.upload] status=", response.status_code)
+        print("[SuperDocsClient.upload] response=", response.text)
 
         return response.json()
 
@@ -63,7 +65,10 @@ class SuperDocsClient:
 
         response.raise_for_status()
 
-        return response.json()
+        response.raise_for_status()
+        result = response.json()
+        print("[SuperDocs upload response]", result)
+        return result
 
     def approve(
         self,

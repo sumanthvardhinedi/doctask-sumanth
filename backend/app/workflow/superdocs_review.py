@@ -522,10 +522,12 @@ def start_superdocs_review(
     )
 
     try:
+        upload_session_id = str(uuid.uuid4())
         upload_result = client.upload(
             filename=document.filename,
             content=content,
-        )
+            session_id=upload_session_id,
+)
 
     except Exception as exc:
         logger.exception(
